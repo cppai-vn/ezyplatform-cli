@@ -9,7 +9,7 @@
 set -e
 
 PKG=ezyplatform-cli
-RELEASES=https://api.github.com/repos/itsddvn/ezyplatform-cli/releases/latest
+REPO=https://github.com/itsddvn/ezyplatform-cli
 
 UV=$(command -v uv || true)
 if [ -z "$UV" ]; then
@@ -25,8 +25,10 @@ if [ -z "$EZY_SOURCE" ]; then
   if curl -fsS -o /dev/null "https://pypi.org/pypi/$PKG/json" 2>/dev/null; then
     EZY_SOURCE=$PKG
   else
-    EZY_SOURCE=$(curl -fsSL "$RELEASES" | grep -o '"browser_download_url": *"[^"]*\.whl"' | sed 's/.*"\(http[^"]*\)"/\1/' | head -n 1)
-    [ -n "$EZY_SOURCE" ] || { echo "no ezy release found on GitHub" >&2; exit 1; }
+    # releases/latest redirects to .../tag/vX.Y.Z (no API call, so no rate limit)
+    TAG=$(curl -fsSIL -o /dev/null -w '%{url_effective}' "$REPO/releases/latest" | sed 's|.*/tag/||')
+    case "$TAG" in v[0-9]*) ;; *) echo "no ezy release found on GitHub" >&2; exit 1 ;; esac
+    EZY_SOURCE="$REPO/releases/download/$TAG/ezyplatform_cli-${TAG#v}-py3-none-any.whl"
   fi
 fi
 

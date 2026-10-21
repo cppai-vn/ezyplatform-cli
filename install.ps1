@@ -8,7 +8,7 @@
 $ErrorActionPreference = 'Stop'
 
 $Pkg = 'ezyplatform-cli'
-$Releases = 'https://api.github.com/repos/itsddvn/ezyplatform-cli/releases/latest'
+$Repo = 'https://github.com/itsddvn/ezyplatform-cli'
 
 $uv = (Get-Command uv -ErrorAction SilentlyContinue).Source
 if (-not $uv) {
@@ -26,9 +26,12 @@ if (-not $source) {
         Invoke-WebRequest "https://pypi.org/pypi/$Pkg/json" -UseBasicParsing -Method Head | Out-Null
         $source = $Pkg
     } catch {
-        $wheel = (Invoke-RestMethod $Releases).assets | Where-Object { $_.name -like '*.whl' } | Select-Object -First 1
-        if (-not $wheel) { throw 'no ezy release found on GitHub' }
-        $source = $wheel.browser_download_url
+        # releases/latest redirects to .../tag/vX.Y.Z (no API call, so no rate limit)
+        $resp = Invoke-WebRequest "$Repo/releases/latest" -UseBasicParsing -Method Head
+        $final = if ($resp.BaseResponse.ResponseUri) { $resp.BaseResponse.ResponseUri.AbsoluteUri } else { $resp.BaseResponse.RequestMessage.RequestUri.AbsoluteUri }
+        $tag = ($final -split '/tag/')[-1]
+        if ($tag -notmatch '^v\d') { throw 'no ezy release found on GitHub' }
+        $source = "$Repo/releases/download/$tag/ezyplatform_cli-$($tag.Substring(1))-py3-none-any.whl"
     }
 }
 
