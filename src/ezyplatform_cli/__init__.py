@@ -1,2 +1,2 @@
 """EzyPlatform CLI: the ezy-* skills as one `ezy` command."""
-__version__ = '0.1.2'
+__version__ = '0.1.3'
