@@ -6,6 +6,7 @@ import os
 import tempfile
 import threading
 import unittest
+from unittest import mock
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from ezyplatform_cli.cli import main
@@ -111,6 +112,39 @@ class CliTest(unittest.TestCase):
         code, out = run('whoami', cwd=self.dir)
         self.assertEqual(code, 0, out)
         self.assertIn('content_admin', out)
+
+
+class UpdateTest(unittest.TestCase):
+    def setUp(self):
+        from ezyplatform_cli import self_update
+        self.mod = self_update
+        patcher = mock.patch.object(self_update, 'find_uv', return_value='/bin/uv')
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_already_latest(self):
+        with mock.patch.object(self.mod, 'latest_version', return_value=self.mod.__version__), \
+                mock.patch.object(self.mod.subprocess, 'call') as call:
+            code, out = run('update')
+        self.assertEqual(code, 0)
+        self.assertIn('is the latest version', out)
+        call.assert_not_called()
+
+    @unittest.skipIf(os.name == 'nt', 'Windows installs in a new console window')
+    def test_installs_newer_release_wheel(self):
+        with mock.patch.object(self.mod, 'latest_version', return_value='99.0.0'), \
+                mock.patch.object(self.mod.subprocess, 'call', return_value=0) as call:
+            code, out = run('update')
+        self.assertEqual(code, 0, out)
+        cmd = call.call_args[0][0]
+        self.assertEqual(cmd[:4], ['/bin/uv', 'tool', 'install', '--force'])
+        self.assertTrue(cmd[-1].endswith('/v99.0.0/ezyplatform_cli-99.0.0-py3-none-any.whl'))
+
+    def test_offline_is_a_short_error(self):
+        with mock.patch.object(self.mod, 'latest_version', side_effect=OSError('offline')):
+            code, out = run('update')
+        self.assertEqual(code, 2)
+        self.assertIn('cannot check for updates', out)
 
 
 if __name__ == '__main__':

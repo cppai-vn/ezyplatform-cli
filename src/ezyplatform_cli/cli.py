@@ -62,6 +62,10 @@ Publish (local -> server, dry run unless --yes)
 Check
   verify preview <slug> | verify live [path] [--expect TEXT]
 
+Tool
+  update                         install the latest ezy release
+  --version
+
 Targets: page:<slug> | fragment:<page_name>/<fragment_name>
 Docs: https://github.com/itsddvn/ezyplatform-cli
 """
@@ -109,6 +113,9 @@ def main(argv=None):
     if argv[0] == 'skills-path':
         print(SKILLS)
         return 0
+    if argv[0] in ('update', 'upgrade'):
+        from . import self_update
+        return self_update.main(argv[1:])
     if argv[0] not in COMMANDS:
         print(f"ezy: unknown command '{argv[0]}'. Run 'ezy --help'.", file=sys.stderr)
         return 2
