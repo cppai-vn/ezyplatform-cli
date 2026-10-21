@@ -1,36 +1,44 @@
 #!/bin/sh
-# Install or upgrade the `ezy` command (EzyPlatform CLI).
+# Install or upgrade the `ezy` command (EzyPlatform CLI) on macOS and Linux.
 #   curl -LsSf https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.sh | sh
-# Uses uv, then pipx, then pip --user. Installs from PyPI, or from GitHub when
-# the package is not on PyPI (set EZY_SOURCE to force a source).
+# Uses uv (https://docs.astral.sh/uv), installing it first when missing; uv also
+# downloads Python when the machine has no Python 3.9+. Installs from PyPI, or
+# from the latest GitHub release while the package is not on PyPI (set EZY_SOURCE
+# to force a source, e.g. git+https://github.com/itsddvn/ezyplatform-cli for main).
+# EZY_NO_MODIFY_PATH=1 leaves shell profiles untouched.
 set -e
 
 PKG=ezyplatform-cli
-GIT="git+https://github.com/itsddvn/ezyplatform-cli"
+RELEASES=https://api.github.com/repos/itsddvn/ezyplatform-cli/releases/latest
+
+UV=$(command -v uv || true)
+if [ -z "$UV" ]; then
+  echo "Installing uv (Python tool manager)..."
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  for dir in "$UV_INSTALL_DIR" "$XDG_BIN_HOME" "$HOME/.local/bin" "$HOME/.cargo/bin"; do
+    if [ -n "$dir" ] && [ -x "$dir/uv" ]; then UV="$dir/uv"; break; fi
+  done
+  [ -n "$UV" ] || { echo "uv was installed but not found; open a new terminal and run this again." >&2; exit 1; }
+fi
 
 if [ -z "$EZY_SOURCE" ]; then
   if curl -fsS -o /dev/null "https://pypi.org/pypi/$PKG/json" 2>/dev/null; then
     EZY_SOURCE=$PKG
   else
-    EZY_SOURCE=$GIT
+    EZY_SOURCE=$(curl -fsSL "$RELEASES" | grep -o '"browser_download_url": *"[^"]*\.whl"' | sed 's/.*"\(http[^"]*\)"/\1/' | head -n 1)
+    [ -n "$EZY_SOURCE" ] || { echo "no ezy release found on GitHub" >&2; exit 1; }
   fi
 fi
 
-if command -v uv >/dev/null 2>&1; then
-  uv tool install --force --python ">=3.9" "$EZY_SOURCE"
-elif command -v pipx >/dev/null 2>&1; then
-  pipx install --force "$EZY_SOURCE"
-elif command -v python3 >/dev/null 2>&1; then
-  python3 -m pip install --user --upgrade "$EZY_SOURCE"
-else
-  echo "ezy needs Python 3.9+. Install uv first: curl -LsSf https://astral.sh/uv/install.sh | sh" >&2
-  exit 1
-fi
+echo "Installing ezy from $EZY_SOURCE..."
+"$UV" tool install --force --python ">=3.9" "$EZY_SOURCE"
+[ -n "$EZY_NO_MODIFY_PATH" ] || "$UV" tool update-shell >/dev/null 2>&1 || true
 
+BIN=$("$UV" tool dir --bin)
 echo
+"$BIN/ezy" --version
 if command -v ezy >/dev/null 2>&1; then
-  ezy --version
   echo "Done. Start with: ezy init my-site --admin-url https://admin.example.com"
 else
-  echo "Installed, but 'ezy' is not on PATH yet. Open a new terminal (or run: uv tool update-shell)."
+  echo "Done. Open a new terminal so 'ezy' is on your PATH, then: ezy init my-site --admin-url https://admin.example.com"
 fi
