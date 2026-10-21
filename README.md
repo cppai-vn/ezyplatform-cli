@@ -76,7 +76,7 @@ python3 -m unittest discover -s tests
 
 The script also rewrites the command hints the scripts print (`python3 ezy_publish.py restore …` → `ezy publish restore …`) and records the plugin version in `skills/VENDORED.json` (shown by `ezy --version`).
 
-Release: bump `__version__` in `src/ezyplatform_cli/__init__.py`, commit, then `git tag vX.Y.Z && git push --tags`. The Release workflow builds, publishes to PyPI (trusted publishing, environment `pypi`) and creates a GitHub release with the wheel.
+Release: bump `__version__` in `src/ezyplatform_cli/__init__.py`, commit, then `git tag vX.Y.Z && git push --tags`. The Release workflow builds and creates the GitHub release with the wheel (re-running it refreshes the files). PyPI publishing is off until the repository variable `PYPI_PUBLISH` is `true`: first add a trusted publisher on pypi.org (project `ezyplatform-cli`, workflow `release.yml`, environment `pypi`), then `gh variable set PYPI_PUBLISH --body true`.
 
 ## License
 

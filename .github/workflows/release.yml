@@ -1,5 +1,7 @@
 name: Release
-# Push a tag vX.Y.Z (matching __version__) to build, publish to PyPI and create a GitHub release.
+# Push a tag vX.Y.Z (matching __version__) to build and create (or refresh) the GitHub release.
+# PyPI publishing runs only when the repository variable PYPI_PUBLISH is "true"
+# (set it after adding this workflow as a trusted publisher on pypi.org).
 on:
   push:
     tags: ["v*"]
@@ -24,6 +26,7 @@ jobs:
 
   pypi:
     needs: build
+    if: vars.PYPI_PUBLISH == 'true'
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -45,6 +48,12 @@ jobs:
         with:
           name: packages
           path: dist/
-      - run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --generate-notes
+      - name: Create the release, or replace its files when it already exists
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --generate-notes
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
