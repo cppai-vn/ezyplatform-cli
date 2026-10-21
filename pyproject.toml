@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ezyplatform-cli"
+dynamic = ["version"]
+description = "ezy: manage EzyPlatform / EzyArticle sites from a local project (init, sync, publish with backup and rollback, media, i18n, mail, verify)."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "CPPAI Co.,LTD", email = "ntduc@payfs.vn" }]
+keywords = ["ezyplatform", "ezyarticle", "cms", "cli", "thymeleaf"]
+classifiers = [
+  "Environment :: Console",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Topic :: Internet :: WWW/HTTP :: Site Management",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/itsddvn/ezyplatform-cli"
+Issues = "https://github.com/itsddvn/ezyplatform-cli/issues"
+Skills = "https://github.com/cppai-vn/agents-plugins/tree/main/ezyplatform"
+
+[project.scripts]
+ezy = "ezyplatform_cli.cli:main"
+
+[tool.hatch.version]
+path = "src/ezyplatform_cli/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ezyplatform_cli"]
+exclude = ["__pycache__", "*.pyc"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "scripts", "tests", "README.md", "LICENSE", "install.sh"]
