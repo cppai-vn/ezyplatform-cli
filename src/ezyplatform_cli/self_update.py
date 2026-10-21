@@ -1,11 +1,11 @@
 """`ezy update` and `ezy uninstall`: manage the ezy installation itself.
 
-update installs the latest GitHub release over the current one with uv. The
-latest tag comes from the redirect of /releases/latest (no GitHub API call, so
-no rate limit). uninstall removes ezy with the tool that installed it (uv,
+update installs the latest GitHub release over the current one with uv.
+uninstall removes ezy with the tool that installed it (uv,
 pipx or pip); site projects are never touched. On Windows the running ezy.exe
 is locked, so uv runs in a new console window after ezy exits.
 """
+import json
 import os
 import shutil
 import subprocess
@@ -15,16 +15,29 @@ import urllib.request
 from . import __version__
 
 REPO = 'https://github.com/itsddvn/ezyplatform-cli'
+API = 'https://api.github.com/repos/itsddvn/ezyplatform-cli'
 WHEEL = REPO + '/releases/download/v{v}/ezyplatform_cli-{v}-py3-none-any.whl'
 INSTALL_HINT = ('  macOS / Linux: curl -LsSf https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.sh | sh\n'
                 '  Windows:       powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.ps1 | iex"')
 
 
 def latest_version():
-    """Version of the latest release, e.g. '0.1.1', from the releases/latest redirect."""
-    req = urllib.request.Request(REPO + '/releases/latest', method='HEAD', headers={'User-Agent': 'ezy/' + __version__})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        tag = resp.geturl().rstrip('/').rsplit('/tag/', 1)[-1]
+    """Version of the latest release, e.g. '0.1.1'.
+
+    The API answer is current; when it is rate limited, fall back to the
+    releases/latest redirect. That redirect is cached per Accept header, and the
+    variant without one (urllib's default) can point at an old release for hours,
+    so Accept is always sent.
+    """
+    headers = {'User-Agent': 'ezy/' + __version__}
+    try:
+        req = urllib.request.Request(API + '/releases/latest', headers=dict(headers, Accept='application/vnd.github+json'))
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            tag = json.load(resp).get('tag_name') or ''
+    except (OSError, ValueError):
+        req = urllib.request.Request(REPO + '/releases/latest', method='HEAD', headers=dict(headers, Accept='*/*'))
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            tag = resp.geturl().rstrip('/').rsplit('/tag/', 1)[-1]
     if not tag.startswith('v'):
         raise OSError('no release found on GitHub')
     return tag[1:]

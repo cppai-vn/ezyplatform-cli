@@ -26,8 +26,9 @@ if (-not $source) {
         Invoke-WebRequest "https://pypi.org/pypi/$Pkg/json" -UseBasicParsing -Method Head | Out-Null
         $source = $Pkg
     } catch {
-        # releases/latest redirects to .../tag/vX.Y.Z (no API call, so no rate limit)
-        $resp = Invoke-WebRequest "$Repo/releases/latest" -UseBasicParsing -Method Head
+        # releases/latest redirects to .../tag/vX.Y.Z (no API call, so no rate limit);
+        # send Accept: the cached redirect for requests without one can be stale
+        $resp = Invoke-WebRequest "$Repo/releases/latest" -UseBasicParsing -Method Head -Headers @{ Accept = "*/*" }
         $final = if ($resp.BaseResponse.ResponseUri) { $resp.BaseResponse.ResponseUri.AbsoluteUri } else { $resp.BaseResponse.RequestMessage.RequestUri.AbsoluteUri }
         $tag = ($final -split '/tag/')[-1]
         if ($tag -notmatch '^v\d') { throw 'no ezy release found on GitHub' }
