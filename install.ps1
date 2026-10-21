@@ -38,7 +38,8 @@ if (-not $source) {
 Write-Host "Installing ezy from $source..."
 & $uv tool install --force --python '>=3.9' $source
 if ($LASTEXITCODE -ne 0) { throw "uv tool install failed ($LASTEXITCODE)" }
-if (-not $env:EZY_NO_MODIFY_PATH) { & $uv tool update-shell 2>$null | Out-Null }
+# update-shell writes notes to stderr, which Windows PowerShell 5 turns into errors under 'Stop'
+if (-not $env:EZY_NO_MODIFY_PATH) { try { & $uv tool update-shell *> $null } catch {} }
 
 $bin = (& $uv tool dir --bin).Trim()
 Write-Host ''
