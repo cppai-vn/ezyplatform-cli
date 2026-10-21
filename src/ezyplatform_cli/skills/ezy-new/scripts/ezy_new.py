@@ -2,7 +2,7 @@
 """Bootstrap a new EzyPlatform / EzyArticle project folder and validate its connection.
 
 Usage:
-    ezy init [target] [--admin-url URL] [--site NAME]
+    ezy new [target] [--admin-url URL] [--site NAME]
                                [--copy-skills] [--update-skills] [--no-example]
     ezy token [admin_url]
     ezy check [target]

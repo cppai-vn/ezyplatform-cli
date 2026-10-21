@@ -11,7 +11,7 @@ Signpost for the `ezy-*` skills: which skill does what, in what order, under whi
 
 ## 1. Orient (always)
 
-1. Find the project root (folder with `environment.json`). No `environment.json`, placeholder token, or HTTP 401 → use `ezy-init` first. Never print `admin_access_token`; never put it in a URL, browser page or commit.
+1. Find the project root (folder with `environment.json`). No `environment.json`, placeholder token, or HTTP 401 → use `ezy-new` first. Never print `admin_access_token`; never put it in a URL, browser page or commit.
 2. Read the project `AGENTS.md` (EzyArticle conventions from the VS Code extension) and `README.md` (site-specific notes). Skills point to them rather than copying them.
 3. Check which site and role you are acting as (read-only):
    ```bash
@@ -23,7 +23,7 @@ Signpost for the `ezy-*` skills: which skill does what, in what order, under whi
 
 | User intent | Skill |
 |---|---|
-| New project, no `environment.json`, token missing/expired, setup check | `ezy-init` |
+| New project, no `environment.json`, token missing/expired, setup check | `ezy-new` |
 | "Is local up to date?", pull server changes, before editing | `ezy-sync` |
 | Build or change a page, fragment, theme, copy, content translation | `ezy-author` |
 | Images, CSS/JS files, logos, anything under `api/v1/media` | `ezy-media` |

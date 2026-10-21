@@ -3,6 +3,7 @@
 Each command runs the matching skill script bundled in `skills/` with the same
 arguments, so behaviour, dry runs and safety checks are exactly the plugin's.
 """
+import importlib
 import json
 import os
 import sys
@@ -11,17 +12,16 @@ from . import __version__
 
 SKILLS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'skills')
 
-INIT = 'ezy-init/scripts/ezy_init.py'
+NEW = 'ezy-new/scripts/ezy_new.py'
 CLIENT = 'ezy-shared/ezy_client.py'
 SYNC = 'ezy-sync/scripts/ezy_sync.py'
 PUBLISH = 'ezy-publish/scripts/ezy_publish.py'
 
 # command -> (script, fixed leading arguments, program name shown in usage)
 COMMANDS = {
-    'init': (INIT, ['create'], 'ezy init'),
-    'new': (INIT, ['create'], 'ezy new'),
-    'check': (INIT, ['check'], 'ezy check'),
-    'token': (INIT, ['token-help'], 'ezy token'),
+    'new': (NEW, ['create'], 'ezy new'),
+    'check': (NEW, ['check'], 'ezy check'),
+    'token': (NEW, ['token-help'], 'ezy token'),
     'whoami': (CLIENT, ['whoami'], 'ezy whoami'),
     'get': (CLIENT, ['get'], 'ezy get'),
     'sync': (SYNC, [], 'ezy sync'),
@@ -35,13 +35,29 @@ COMMANDS = {
     'mail': ('ezy-mail/scripts/ezy_mail.py', [], 'ezy mail'),
 }
 
+# command -> (module, function) for commands that manage ezy and the agents
+TOOLS = {
+    'init': ('setup_wizard', 'main'),
+    'plugins': ('agents', 'main'),
+    'skills': ('skills_install', 'main'),
+    'doctor': ('doctor', 'main'),
+    'update': ('self_update', 'update'),
+    'upgrade': ('self_update', 'update'),
+    'uninstall': ('self_update', 'uninstall'),
+}
+
 HELP = """ezy — EzyPlatform / EzyArticle site tools (ezyplatform skills {skills})
 
 Usage: ezy <command> [args]      ezy <command> --help for details
 
+Setup (this computer)
+  init [--yes] [--target ...]    install the plugin into your coding agents, optional skills, then doctor
+  plugins status|install|update  the ezyplatform plugin per agent (claude, codex, copilot, omp, cursor)
+  skills status|install|verify|remove   skill copies for agents without plugins (opencode, --dir)
+  doctor                         check ezy, agents, plugin/skill duplicates and the current project
+
 Project
-  init [dir] [--admin-url URL]   create a project (environment.json, AGENTS.md, pages/ ...)
-  new  [dir] [--admin-url URL]   same as init
+  new [dir] [--admin-url URL]    create a site project (environment.json, AGENTS.md, pages/ ...)
   token [admin_url]              how to get the admin access token
   check [dir]                    validate environment.json and the connection
   whoami                         roles of the token owner
@@ -63,7 +79,7 @@ Check
   verify preview <slug> | verify live [path] [--expect TEXT]
 
 Tool
-  update                         install the latest ezy release
+  update                         latest ezy release, then refresh plugins and skill copies
   uninstall [--yes]              remove ezy (site projects are kept)
   --version
 
@@ -91,14 +107,18 @@ def run_script(script, args, prog):
         # exec instead of runpy.run_path, which would reset argv[0] to the script path
         exec(compiled, {'__name__': '__main__', '__file__': path, '__builtins__': __builtins__})
     except SystemExit as exc:
-        code = exc.code
-        if code is None or isinstance(code, int):
-            return code or 0
-        print(code, file=sys.stderr)
-        return 1
+        return exit_code(exc)
     finally:
         sys.argv = saved
     return 0
+
+
+def exit_code(exc):
+    """Exit status of a SystemExit; a message is printed and counts as 1."""
+    if exc.code is None or isinstance(exc.code, int):
+        return exc.code or 0
+    print(exc.code, file=sys.stderr)
+    return 1
 
 
 def main(argv=None):
@@ -114,10 +134,14 @@ def main(argv=None):
     if argv[0] == 'skills-path':
         print(SKILLS)
         return 0
-    if argv[0] in ('update', 'upgrade', 'uninstall'):
-        from . import self_update
-        handler = self_update.uninstall if argv[0] == 'uninstall' else self_update.update
-        return handler(argv[1:])
+    if argv[0] in TOOLS:
+        module, func = TOOLS[argv[0]]
+        try:
+            return getattr(importlib.import_module('.' + module, __package__), func)(argv[1:])
+        except SystemExit as exc:
+            return exit_code(exc)
+        except KeyboardInterrupt:
+            return 130
     if argv[0] not in COMMANDS:
         print(f"ezy: unknown command '{argv[0]}'. Run 'ezy --help'.", file=sys.stderr)
         return 2

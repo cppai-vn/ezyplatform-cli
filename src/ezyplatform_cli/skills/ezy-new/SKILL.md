@@ -1,9 +1,9 @@
 ---
-name: ezy-init
+name: ezy-new
 description: Bootstrap a new EzyPlatform / EzyArticle project folder — the same starter structure and agent instructions as the VS Code extension's "Create Project" (environment.json, AGENTS.md, AGENTS_UPDATED.md, README.md, api/v1/media, example page, .gitignore) plus the ezy-* skills — then guide the human to get the admin access token and validate the connection. Use when starting work on a new EzyPlatform site, when a folder has no environment.json, when the token is missing/expired/rejected, or to re-check a project's setup.
 ---
 
-# ezy-init
+# ezy-new
 
 > Paths: `${CLAUDE_SKILL_DIR}` is this skill's folder (Claude Code substitutes it; other agents: replace it with the folder containing this SKILL.md). Sibling skills and the shared library `ezy-shared` sit next to it. Run commands from the site project root (the folder with `environment.json`).
 
@@ -14,7 +14,7 @@ Sets up a project so every other `ezy-*` skill works. Never ask the human to pas
 Ask for the admin URL if you do not have it (e.g. `https://admin.example.com`), then:
 
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/ezy_init.py create <target-folder> --admin-url https://admin.example.com
+python3 ${CLAUDE_SKILL_DIR}/scripts/ezy_new.py create <target-folder> --admin-url https://admin.example.com
 ```
 
 The script lives in `${CLAUDE_SKILL_DIR}/scripts/` wherever the skills are installed; it prints its own absolute path in the next steps.
@@ -47,7 +47,7 @@ Explain the risk once: the token carries the full rights of that admin account (
 ## 3. Validate
 
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/ezy_init.py check <target-folder>
+python3 ${CLAUDE_SKILL_DIR}/scripts/ezy_new.py check <target-folder>
 ```
 
 Checks JSON shape, one default environment, real URL, token no longer the placeholder, `.gitignore` protection, file permissions; then calls the API: roles, public site URL, number of fragment groups on the server. HTTP 401 → token wrong/expired (copy again); 403 → wrong URL or not an admin token.

@@ -10,6 +10,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.request
 
 from . import __version__
@@ -69,24 +70,78 @@ def installer():
     return 'pip'
 
 
-def run_uv(command, done_message):
-    """Run a uv command that replaces or removes this ezy; on Windows after ezy has exited."""
+def ezy_command():
+    """argv that starts the installed ezy (the new one after uv replaced it)."""
+    if os.path.basename(sys.argv[0]).lower().startswith('ezy'):
+        return [os.path.abspath(sys.argv[0])]
+    found = shutil.which('ezy')
+    return [found] if found else [sys.executable, '-m', 'ezyplatform_cli']
+
+
+def cmd_line(argv):
+    """One batch-file line; every argument double-quoted (none of ours contain quotes)."""
+    return ' '.join('"' + a.replace('%', '%%') + '"' for a in argv)
+
+
+def run_uv(command, done_message, then=None):
+    """Run a uv command that replaces or removes this ezy; on Windows after ezy has exited.
+
+    `then` is run after a successful command (on Windows in the same new window).
+    """
     if os.name == 'nt':
-        line = subprocess.list2cmdline(command)
-        subprocess.Popen(['cmd', '/c', f'timeout /t 2 /nobreak >nul & {line} & pause'],
-                         creationflags=subprocess.CREATE_NEW_CONSOLE)
+        # a batch file, because cmd /c "..." mangles quoted paths and reads '>=3.9' as a redirect
+        lines = ['@echo off', 'timeout /t 2 /nobreak >nul', cmd_line(command), 'if errorlevel 1 goto end']
+        if then:
+            lines.append(cmd_line(then))
+        lines += [':end', 'pause', '(goto) 2>nul & del "%~f0"']
+        fd, script = tempfile.mkstemp(suffix='.cmd', prefix='ezy-')
+        with os.fdopen(fd, 'w', encoding='utf-8') as fh:
+            fh.write('\r\n'.join(lines) + '\r\n')
+        subprocess.Popen(['cmd', '/c', script], creationflags=subprocess.CREATE_NEW_CONSOLE)
         print('This continues in a new window; open a new terminal when it is done.')
         return 0
     code = subprocess.call(command)
     if code == 0:
         print(done_message)
+        if then:
+            code = subprocess.call(then)
     return code
+
+
+def refresh():
+    """Update the plugin in every agent that has it and refresh ezy's skill copies."""
+    from . import agents, skills_install
+    print('Plugins')
+    states = {n: agents.plugin_installed(n) for n in agents.NAMES if agents.detected(n) and not agents.AGENTS[n].get('manual')}
+    for name in [n for n, s in states.items() if s is None]:
+        print(f"  ? {agents.AGENTS[name]['label']}: plugin list could not be read, skipped")
+    names = [n for n, s in states.items() if s]
+    ok = all([agents.update(n) for n in names])
+    if not names:
+        print('  no agent has the ezyplatform plugin')
+    print('Skill copies')
+    copies = [(d, r) for d, r in skills_install.copies() if skills_install.read_manifest(d)]
+    for dest, result in copies:
+        if result == 'ok':
+            print(f'  = {dest}: up to date')
+        elif result.startswith('modified'):
+            print(f'  ! {dest}: {result}, kept; replace with: ezy skills install --dir {dest} --force')
+            ok = False
+        else:
+            ok &= skills_install.install_to(dest, force=True)
+    if not copies:
+        print('  none')
+    return 0 if ok else 1
 
 
 def update(args):
     if args and args[0] in ('-h', '--help'):
-        print('usage: ezy update\n\nInstall the latest ezy release from GitHub (uses uv).')
+        print('usage: ezy update [--cli-only]\n\nInstall the latest ezy release from GitHub (uses uv), then update '
+              'the ezyplatform plugin in your agents and the skill copies made by ezy.')
         return 0
+    if '--refresh' in args:
+        return refresh()
+    cli_only = '--cli-only' in args
     try:
         latest = latest_version()
     except OSError as err:
@@ -94,14 +149,16 @@ def update(args):
         return 2
     if parse(latest) <= parse(__version__):
         print(f'ezy {__version__} is the latest version')
-        return 0
+        return 0 if cli_only else refresh()
     uv = find_uv()
     if not uv:
         print(f'ezy {latest} is available (installed: {__version__}). uv was not found; upgrade with:\n{INSTALL_HINT}')
         return 1
     command = [uv, 'tool', 'install', '--force', '--python', '>=3.9', WHEEL.format(v=latest)]
     print(f'Updating ezy {__version__} -> {latest}', flush=True)
-    return run_uv(command, f'ezy updated to {latest}')
+    # the new ezy refreshes plugins and skills, so the copies match the new bundle
+    then = None if cli_only else ezy_command() + ['update', '--refresh']
+    return run_uv(command, f'ezy updated to {latest}', then)
 
 
 def uninstall(args):

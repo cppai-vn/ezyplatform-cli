@@ -46,7 +46,7 @@ $bin = (& $uv tool dir --bin).Trim()
 Write-Host ''
 & "$bin\ezy.exe" --version
 if (Get-Command ezy -ErrorAction SilentlyContinue) {
-    Write-Host 'Done. Start with: ezy init my-site --admin-url https://admin.example.com'
+    Write-Host 'Done. Next: ezy init (sets up your coding agents), then ezy new my-site --admin-url https://admin.example.com'
 } else {
-    Write-Host "Done. Open a new terminal so 'ezy' is on your PATH, then: ezy init my-site --admin-url https://admin.example.com"
+    Write-Host "Done. Open a new terminal so 'ezy' is on your PATH, then run: ezy init"
 }

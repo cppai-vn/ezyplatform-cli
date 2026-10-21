@@ -62,14 +62,20 @@ class CliTest(unittest.TestCase):
         self.assertEqual(run('nope')[0], 2)
 
     def test_subcommand_help_uses_ezy_names(self):
-        for cmd in ('sync', 'publish', 'media', 'i18n', 'verify', 'mail', 'init'):
+        for cmd in ('sync', 'publish', 'media', 'i18n', 'verify', 'mail', 'new', 'init', 'plugins', 'skills'):
             code, out = run(cmd, '--help')
             self.assertEqual(code, 0, cmd)
             self.assertIn('usage: ezy ', out)
             self.assertNotIn('python3 ezy_', out)
 
-    def test_init_then_check_placeholder_fails(self):
+    def test_init_with_a_folder_points_to_new(self):
         code, out = run('init', self.dir, '--admin-url', 'https://admin.example.test')
+        self.assertEqual(code, 2)
+        self.assertIn('ezy new', out)
+        self.assertFalse(os.path.exists(os.path.join(self.dir, 'environment.json')))
+
+    def test_new_then_check_placeholder_fails(self):
+        code, out = run('new', self.dir, '--admin-url', 'https://admin.example.test')
         self.assertEqual(code, 0, out)
         for name in ('environment.json', 'AGENTS.md', 'README.md', '.gitignore', 'pages/example-page/meta.json'):
             self.assertTrue(os.path.exists(os.path.join(self.dir, name)), name)
@@ -79,7 +85,7 @@ class CliTest(unittest.TestCase):
         self.assertIn('admin_access_token is still the placeholder', out)
 
     def test_unreachable_server_is_a_short_error(self):
-        run('init', self.dir, '--admin-url', 'http://127.0.0.1:9')
+        run('new', self.dir, '--admin-url', 'http://127.0.0.1:9')
         code, out = run('status', cwd=self.dir)
         self.assertEqual(code, 2)
         self.assertIn('cannot reach the admin server', out)
@@ -97,7 +103,7 @@ class CliTest(unittest.TestCase):
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
         url = f'http://127.0.0.1:{server.server_port}'
-        run('init', self.dir, '--admin-url', url)
+        run('new', self.dir, '--admin-url', url)
         env_path = os.path.join(self.dir, 'environment.json')
         with open(env_path) as fh:
             envs = json.load(fh)
@@ -124,11 +130,13 @@ class UpdateTest(unittest.TestCase):
 
     def test_already_latest(self):
         with mock.patch.object(self.mod, 'latest_version', return_value=self.mod.__version__), \
+                mock.patch.object(self.mod, 'refresh', return_value=0) as refresh, \
                 mock.patch.object(self.mod.subprocess, 'call') as call:
             code, out = run('update')
         self.assertEqual(code, 0)
         self.assertIn('is the latest version', out)
         call.assert_not_called()
+        refresh.assert_called_once()
 
     @unittest.skipIf(os.name == 'nt', 'Windows installs in a new console window')
     def test_installs_newer_release_wheel(self):
@@ -136,9 +144,11 @@ class UpdateTest(unittest.TestCase):
                 mock.patch.object(self.mod.subprocess, 'call', return_value=0) as call:
             code, out = run('update')
         self.assertEqual(code, 0, out)
-        cmd = call.call_args[0][0]
+        cmd = call.call_args_list[0][0][0]
         self.assertEqual(cmd[:4], ['/bin/uv', 'tool', 'install', '--force'])
         self.assertTrue(cmd[-1].endswith('/v99.0.0/ezyplatform_cli-99.0.0-py3-none-any.whl'))
+        # then the new ezy refreshes plugins and skill copies
+        self.assertEqual(call.call_args_list[1][0][0][-2:], ['update', '--refresh'])
 
     def test_uninstall_needs_confirmation(self):
         with mock.patch.object(self.mod.sys.stdin, 'isatty', return_value=False), \

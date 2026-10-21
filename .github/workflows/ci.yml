@@ -39,5 +39,6 @@ jobs:
         run: |
           bin=$(uv tool dir --bin 2>/dev/null || "$HOME/.local/bin/uv" tool dir --bin)
           "$bin/ezy" --version
-          "$bin/ezy" init site --admin-url https://admin.example.com >/dev/null
+          "$bin/ezy" new site --admin-url https://admin.example.com >/dev/null
+          "$bin/ezy" doctor || true
           test -f site/environment.json

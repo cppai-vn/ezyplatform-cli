@@ -6,7 +6,7 @@ files written by the EzyArticle VS Code extension
 `AGENTS_CONTENT`, `AGENTS_UPDATED_CONTENT`, `README_CONTENT`).
 
 MIT License — Copyright (c) 2026 YoungMonkeys. Redistributed unchanged under
-that license. `ezy_init.py` prefers the copy from a newer installed extension
+that license. `ezy_new.py` prefers the copy from a newer installed extension
 and falls back to these files.
 
 `ezy-section.md` is written by the ezy-* skill set and is prepended to the

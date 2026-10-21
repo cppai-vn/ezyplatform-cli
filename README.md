@@ -29,7 +29,8 @@ Already use uv or pipx? `uv tool install ezyplatform-cli` / `pipx install ezypla
 ## Quick start
 
 ```bash
-ezy init my-site --admin-url https://admin.example.com
+ezy init                        # once per computer: plugin into your coding agents, optional skills, doctor
+ezy new my-site --admin-url https://admin.example.com
 cd my-site
 # open https://admin.example.com/admins/me, reveal "Access Token" and paste it into
 # environment.json -> the "default": true entry -> "admin_access_token"
@@ -44,10 +45,14 @@ ezy publish apply page:home --yes   # backup -> publish -> verify, prints the ro
 
 | Command | What it does | Skill |
 |---|---|---|
-| `ezy init [dir] [--admin-url URL] [--copy-skills]` | Create a project (`environment.json`, `AGENTS.md`, `pages/`, `.gitignore` …). `ezy new` is the same | ezy-init |
-| `ezy token [admin_url]` | How to get the admin access token | ezy-init |
-| `ezy check [dir]` | Validate `environment.json` and the connection | ezy-init |
-| `ezy update` · `ezy uninstall` | Install the latest ezy release from GitHub · remove ezy (asks first, site projects are kept) | — |
+| `ezy init [--yes] [--target …] [--skills\|--no-skills] [--dry-run]` | Set up this computer: find your coding agents, install the `ezyplatform` plugin into them, offer skill copies for agents without plugins, validate, then run `ezy doctor` | — |
+| `ezy plugins status\|install\|update [--target all\|claude,codex,copilot,omp,cursor] [--dry-run]` | The plugin per agent, through each agent's own CLI (Cursor: UI steps) | — |
+| `ezy skills status\|install\|verify\|remove [--target opencode] [--dir PATH] [--force]` | Skill copies for agents without plugins; refuses folders where a plugin already loads them | — |
+| `ezy doctor` | ezy version, agents, plugin and skill copies, skills loaded twice, the project in this folder | — |
+| `ezy new [dir] [--admin-url URL] [--copy-skills]` | Create a site project (`environment.json`, `AGENTS.md`, `pages/`, `.gitignore` …) | ezy-new |
+| `ezy token [admin_url]` | How to get the admin access token | ezy-new |
+| `ezy check [dir]` | Validate `environment.json` and the connection | ezy-new |
+| `ezy update [--cli-only]` · `ezy uninstall` | Latest ezy release, then update the plugin in your agents and ezy's skill copies · remove ezy (asks first, site projects are kept) | — |
 | `ezy whoami` · `ezy get <api-path>` | Token owner's roles · redacted GET of an admin API path | ezy-shared |
 | `ezy sync status\|pull\|pull-all\|discover-pages` | Compare and pull pages/fragments, incl. translations. Shortcuts: `ezy status`, `ezy pull`, `ezy pull-all` | ezy-sync |
 | `ezy publish plan\|apply\|restore\|remove` | Dry-run plan → backup → publish per language → verify; rollback; move to Trash | ezy-publish |
@@ -58,7 +63,7 @@ ezy publish apply page:home --yes   # backup -> publish -> verify, prints the ro
 
 `ezy <command> --help` shows every option. Targets are `page:<slug>` or `fragment:<page_name>/<fragment_name>`. Set `EZY_ENV=<name>` to use a non-default environment from `environment.json`.
 
-Authoring (`ezy-author`) and routing (`ezy-guide`) are agent instructions, not commands: `ezy init --copy-skills` copies all skills into `.claude/skills/` so any coding agent can use them together with `ezy`.
+Authoring (`ezy-author`) and routing (`ezy-guide`) are agent instructions, not commands: your coding agent gets them from the plugin (`ezy init`). Give each agent the skills one way only — plugin, a skill copy, or a project's `.claude/skills/` from `ezy new --copy-skills` — or it sees every skill twice; `ezy doctor` reports this.
 
 ## Safety
 
@@ -81,7 +86,7 @@ Release: bump `__version__` in `src/ezyplatform_cli/__init__.py`, commit, then `
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Bundled starter templates come from the EzyArticle VS Code extension by YoungMonkeys (MIT); see `src/ezyplatform_cli/skills/ezy-init/templates/NOTICE.md`.
+MIT — see [LICENSE](LICENSE). Bundled starter templates come from the EzyArticle VS Code extension by YoungMonkeys (MIT); see `src/ezyplatform_cli/skills/ezy-new/templates/NOTICE.md`.
 
 ---
 
@@ -105,9 +110,10 @@ Cài xong mở terminal mới rồi gõ `ezy --version`. Cập nhật: `ezy upda
 
 **Bắt đầu:**
 
-1. `ezy init my-site --admin-url https://admin.example.com` rồi `cd my-site`.
-2. Vào `https://admin.example.com/admins/me`, bấm hiện **Access Token** (nhập mật khẩu), tự dán vào `environment.json` → mục `"default": true` → `admin_access_token`. Không gửi token cho ai.
-3. `ezy check` để kiểm tra kết nối.
-4. `ezy pull-all --langs vi,en --write` để kéo nội dung về, sửa file, rồi `ezy publish plan page:<slug>` xem trước và `ezy publish apply page:<slug> --yes` để publish (có sao lưu, in sẵn lệnh khôi phục).
+1. `ezy init` (một lần cho mỗi máy): cài plugin `ezyplatform` vào các coding agent trên máy, hỏi có chép skill cho agent không hỗ trợ plugin không, kiểm tra rồi chạy `ezy doctor`.
+2. `ezy new my-site --admin-url https://admin.example.com` để tạo dự án site, rồi `cd my-site`.
+3. Vào `https://admin.example.com/admins/me`, bấm hiện **Access Token** (nhập mật khẩu), tự dán vào `environment.json` → mục `"default": true` → `admin_access_token`. Không gửi token cho ai.
+4. `ezy check` để kiểm tra kết nối.
+5. `ezy pull-all --langs vi,en --write` để kéo nội dung về, sửa file, rồi `ezy publish plan page:<slug>` xem trước và `ezy publish apply page:<slug> --yes` để publish (có sao lưu, in sẵn lệnh khôi phục).
 
-Mọi lệnh ghi lên site chỉ chạy thử nếu không có `--yes`. Xem tất cả lệnh: `ezy --help`.
+Mọi lệnh ghi lên site chỉ chạy thử nếu không có `--yes`. Mỗi agent chỉ nên nhận skill theo một cách (plugin hoặc bản chép), nếu không sẽ thấy mỗi skill hai lần; `ezy doctor` sẽ báo. Xem tất cả lệnh: `ezy --help`.

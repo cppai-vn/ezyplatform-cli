@@ -40,7 +40,7 @@ BIN=$("$UV" tool dir --bin)
 echo
 "$BIN/ezy" --version
 if command -v ezy >/dev/null 2>&1; then
-  echo "Done. Start with: ezy init my-site --admin-url https://admin.example.com"
+  echo "Done. Next: ezy init (sets up your coding agents), then ezy new my-site --admin-url https://admin.example.com"
 else
-  echo "Done. Open a new terminal so 'ezy' is on your PATH, then: ezy init my-site --admin-url https://admin.example.com"
+  echo "Done. Open a new terminal so 'ezy' is on your PATH, then run: ezy init"
 fi

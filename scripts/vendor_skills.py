@@ -25,9 +25,9 @@ DEFAULT_SOURCE = os.path.join(os.path.dirname(ROOT), 'cppai', 'agents-plugins', 
 
 # Usage lines in script docstrings (also shown by --help): script + subcommand -> ezy command.
 USAGE = [
-    ('python3 ezy_init.py create', 'ezy init'),
-    ('python3 ezy_init.py token-help', 'ezy token'),
-    ('python3 ezy_init.py check', 'ezy check'),
+    ('python3 ezy_new.py create', 'ezy new'),
+    ('python3 ezy_new.py token-help', 'ezy token'),
+    ('python3 ezy_new.py check', 'ezy check'),
     ('python3 ezy_client.py get', 'ezy get'),
     ('python3 ezy_client.py whoami', 'ezy whoami'),
     ('python3 ezy_sync.py', 'ezy sync'),
@@ -40,7 +40,7 @@ USAGE = [
 # Hints printed at run time: (file, old, new, expected count).
 HINTS = [
     ('ezy-publish/scripts/ezy_publish.py', 'python3 {os.path.relpath(__file__, root)} restore', 'ezy publish restore', 2),
-    ('ezy-init/scripts/ezy_init.py', 'python3 {os.path.abspath(__file__)} check', 'ezy check', 1),
+    ('ezy-new/scripts/ezy_new.py', 'python3 {os.path.abspath(__file__)} check', 'ezy check', 1),
 ]
 
 
