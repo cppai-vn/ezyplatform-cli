@@ -36,4 +36,4 @@ packages = ["src/ezyplatform_cli"]
 exclude = ["__pycache__", "*.pyc"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src", "scripts", "tests", "README.md", "LICENSE", "install.sh"]
+include = ["src", "scripts", "tests", "README.md", "LICENSE", "install.sh", "install.ps1"]

@@ -8,18 +8,23 @@ It packages the scripts of the [`ezyplatform` agent plugin](https://github.com/c
 
 ## Install
 
+One line, nothing else needed — the installer sets up [uv](https://docs.astral.sh/uv) and, when the machine has no Python 3.9+, Python itself.
+
+**macOS / Linux**
+
 ```bash
 curl -LsSf https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.sh | sh
 ```
 
-Or with your preferred tool:
+**Windows** (PowerShell)
 
-```bash
-uv tool install ezyplatform-cli          # or: pipx install ezyplatform-cli
-uv tool install git+https://github.com/itsddvn/ezyplatform-cli   # latest main
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.ps1 | iex"
 ```
 
-Upgrade: run the install command again, or `uv tool upgrade ezyplatform-cli`. Check: `ezy --version`.
+Open a new terminal afterwards, then `ezy --version`. Upgrade: run the same line again. Uninstall: `uv tool uninstall ezyplatform-cli`.
+
+Already use uv or pipx? `uv tool install ezyplatform-cli` / `pipx install ezyplatform-cli` (once published on PyPI), or `uv tool install git+https://github.com/itsddvn/ezyplatform-cli` for the latest `main`.
 
 ## Quick start
 
@@ -83,11 +88,19 @@ MIT — see [LICENSE](LICENSE). Bundled starter templates come from the EzyArtic
 
 `ezy` là công cụ dòng lệnh quản trị site EzyPlatform / EzyArticle từ thư mục dự án trên máy: khởi tạo dự án, kéo nội dung, publish có sao lưu và khôi phục, quản lý media, bản dịch, mail và kiểm tra site thật. Đây là bản đóng gói các script của plugin `ezyplatform` thành một lệnh duy nhất, không cần cài plugin cho agent.
 
-**Cài đặt** (cần Python 3.9+, script tự dùng uv / pipx / pip):
+**Cài đặt** (một dòng, không cần cài gì trước — script tự cài uv và Python nếu máy chưa có):
 
 ```bash
+# macOS / Linux
 curl -LsSf https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.sh | sh
 ```
+
+```powershell
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.ps1 | iex"
+```
+
+Cài xong mở terminal mới rồi gõ `ezy --version`. Cập nhật: chạy lại đúng lệnh cài. Gỡ: `uv tool uninstall ezyplatform-cli`.
 
 **Bắt đầu:**
 
