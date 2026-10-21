@@ -64,6 +64,7 @@ Check
 
 Tool
   update                         install the latest ezy release
+  uninstall [--yes]              remove ezy (site projects are kept)
   --version
 
 Targets: page:<slug> | fragment:<page_name>/<fragment_name>
@@ -113,9 +114,10 @@ def main(argv=None):
     if argv[0] == 'skills-path':
         print(SKILLS)
         return 0
-    if argv[0] in ('update', 'upgrade'):
+    if argv[0] in ('update', 'upgrade', 'uninstall'):
         from . import self_update
-        return self_update.main(argv[1:])
+        handler = self_update.uninstall if argv[0] == 'uninstall' else self_update.update
+        return handler(argv[1:])
     if argv[0] not in COMMANDS:
         print(f"ezy: unknown command '{argv[0]}'. Run 'ezy --help'.", file=sys.stderr)
         return 2

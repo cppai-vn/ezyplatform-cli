@@ -22,7 +22,7 @@ curl -LsSf https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/instal
 powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.ps1 | iex"
 ```
 
-Open a new terminal afterwards, then `ezy --version`. Upgrade: `ezy update` (from 0.1.2; older versions: run the install line again). Uninstall: `uv tool uninstall ezyplatform-cli`.
+Open a new terminal afterwards, then `ezy --version`. Upgrade: `ezy update` (from 0.1.2; older versions: run the install line again). Uninstall: `ezy uninstall` (from 0.1.3; older versions: `uv tool uninstall ezyplatform-cli`). Site projects are kept.
 
 Already use uv or pipx? `uv tool install ezyplatform-cli` / `pipx install ezyplatform-cli` (once published on PyPI), or `uv tool install git+https://github.com/itsddvn/ezyplatform-cli` for the latest `main`.
 
@@ -47,7 +47,7 @@ ezy publish apply page:home --yes   # backup -> publish -> verify, prints the ro
 | `ezy init [dir] [--admin-url URL] [--copy-skills]` | Create a project (`environment.json`, `AGENTS.md`, `pages/`, `.gitignore` …). `ezy new` is the same | ezy-init |
 | `ezy token [admin_url]` | How to get the admin access token | ezy-init |
 | `ezy check [dir]` | Validate `environment.json` and the connection | ezy-init |
-| `ezy update` | Install the latest ezy release from GitHub | — |
+| `ezy update` · `ezy uninstall` | Install the latest ezy release from GitHub · remove ezy (asks first, site projects are kept) | — |
 | `ezy whoami` · `ezy get <api-path>` | Token owner's roles · redacted GET of an admin API path | ezy-shared |
 | `ezy sync status\|pull\|pull-all\|discover-pages` | Compare and pull pages/fragments, incl. translations. Shortcuts: `ezy status`, `ezy pull`, `ezy pull-all` | ezy-sync |
 | `ezy publish plan\|apply\|restore\|remove` | Dry-run plan → backup → publish per language → verify; rollback; move to Trash | ezy-publish |
@@ -101,7 +101,7 @@ curl -LsSf https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/instal
 powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.ps1 | iex"
 ```
 
-Cài xong mở terminal mới rồi gõ `ezy --version`. Cập nhật: `ezy update` (từ bản 0.1.2; bản cũ hơn thì chạy lại lệnh cài). Gỡ: `uv tool uninstall ezyplatform-cli`.
+Cài xong mở terminal mới rồi gõ `ezy --version`. Cập nhật: `ezy update` (từ bản 0.1.2; bản cũ hơn thì chạy lại lệnh cài). Gỡ: `ezy uninstall` (từ bản 0.1.3; bản cũ hơn: `uv tool uninstall ezyplatform-cli`). Thư mục dự án site vẫn được giữ.
 
 **Bắt đầu:**
 

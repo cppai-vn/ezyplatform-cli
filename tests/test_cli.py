@@ -140,6 +140,24 @@ class UpdateTest(unittest.TestCase):
         self.assertEqual(cmd[:4], ['/bin/uv', 'tool', 'install', '--force'])
         self.assertTrue(cmd[-1].endswith('/v99.0.0/ezyplatform_cli-99.0.0-py3-none-any.whl'))
 
+    def test_uninstall_needs_confirmation(self):
+        with mock.patch.object(self.mod.sys.stdin, 'isatty', return_value=False), \
+                mock.patch.object(self.mod.subprocess, 'call') as call:
+            code, out = run('uninstall')
+        self.assertEqual(code, 1)
+        self.assertIn('--yes', out)
+        call.assert_not_called()
+
+    @unittest.skipIf(os.name == 'nt', 'Windows uninstalls in a new console window')
+    def test_uninstall_uses_the_installing_tool(self):
+        for how, expected in (('uv', ['/bin/uv', 'tool', 'uninstall', 'ezyplatform-cli']),
+                              ('pipx', ['pipx', 'uninstall', 'ezyplatform-cli'])):
+            with mock.patch.object(self.mod, 'installer', return_value=how), \
+                    mock.patch.object(self.mod.subprocess, 'call', return_value=0) as call:
+                code, out = run('uninstall', '--yes')
+            self.assertEqual(code, 0, out)
+            self.assertEqual(call.call_args[0][0], expected)
+
     def test_offline_is_a_short_error(self):
         with mock.patch.object(self.mod, 'latest_version', side_effect=OSError('offline')):
             code, out = run('update')

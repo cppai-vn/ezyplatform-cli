@@ -1,8 +1,10 @@
-"""`ezy update`: install the latest GitHub release over the current one with uv.
+"""`ezy update` and `ezy uninstall`: manage the ezy installation itself.
 
-The latest tag comes from the redirect of /releases/latest (no GitHub API call,
-so no rate limit). uv replaces the tool in place; on Windows the running
-ezy.exe is locked, so the install runs in a new console window after ezy exits.
+update installs the latest GitHub release over the current one with uv. The
+latest tag comes from the redirect of /releases/latest (no GitHub API call, so
+no rate limit). uninstall removes ezy with the tool that installed it (uv,
+pipx or pip); site projects are never touched. On Windows the running ezy.exe
+is locked, so uv runs in a new console window after ezy exits.
 """
 import os
 import shutil
@@ -44,7 +46,31 @@ def find_uv():
     return None
 
 
-def main(args):
+def installer():
+    """'uv', 'pipx' or 'pip', from where this ezy's Python environment lives."""
+    parts = os.path.normpath(sys.prefix).split(os.sep)
+    if parts[-1:] == ['ezyplatform-cli'] and parts[-2:-1] == ['tools']:
+        return 'uv'
+    if parts[-1:] == ['ezyplatform-cli'] and parts[-2:-1] == ['venvs']:
+        return 'pipx'
+    return 'pip'
+
+
+def run_uv(command, done_message):
+    """Run a uv command that replaces or removes this ezy; on Windows after ezy has exited."""
+    if os.name == 'nt':
+        line = subprocess.list2cmdline(command)
+        subprocess.Popen(['cmd', '/c', f'timeout /t 2 /nobreak >nul & {line} & pause'],
+                         creationflags=subprocess.CREATE_NEW_CONSOLE)
+        print('This continues in a new window; open a new terminal when it is done.')
+        return 0
+    code = subprocess.call(command)
+    if code == 0:
+        print(done_message)
+    return code
+
+
+def update(args):
     if args and args[0] in ('-h', '--help'):
         print('usage: ezy update\n\nInstall the latest ezy release from GitHub (uses uv).')
         return 0
@@ -62,13 +88,29 @@ def main(args):
         return 1
     command = [uv, 'tool', 'install', '--force', '--python', '>=3.9', WHEEL.format(v=latest)]
     print(f'Updating ezy {__version__} -> {latest}', flush=True)
-    if os.name == 'nt':
-        line = subprocess.list2cmdline(command)
-        subprocess.Popen(['cmd', '/c', f'timeout /t 2 /nobreak >nul & {line} & pause'],
-                         creationflags=subprocess.CREATE_NEW_CONSOLE)
-        print('The update continues in a new window; open a new terminal when it is done.')
+    return run_uv(command, f'ezy updated to {latest}')
+
+
+def uninstall(args):
+    if args and args[0] in ('-h', '--help'):
+        print('usage: ezy uninstall [--yes]\n\nRemove ezy from this computer. '
+              'Site projects (environment.json, pages/ ...) are kept.')
         return 0
-    code = subprocess.call(command)
-    if code == 0:
-        print(f'ezy updated to {latest}')
-    return code
+    if '--yes' not in args and '-y' not in args:
+        if not sys.stdin.isatty():
+            print('ezy: run "ezy uninstall --yes" to confirm', file=sys.stderr)
+            return 1
+        if input(f'Remove ezy {__version__} from this computer? Site projects are kept. [y/N] ').strip().lower() not in ('y', 'yes'):
+            print('cancelled')
+            return 1
+    how = installer()
+    if how == 'pipx':
+        return subprocess.call(['pipx', 'uninstall', 'ezyplatform-cli'])
+    if how == 'pip':
+        return subprocess.call([sys.executable, '-m', 'pip', 'uninstall', '-y', 'ezyplatform-cli'])
+    uv = find_uv()
+    if not uv:
+        print(f'ezy: uv was not found; delete {sys.prefix} and the ezy command next to uv\'s tools', file=sys.stderr)
+        return 1
+    print(f'Removing ezy {__version__}', flush=True)
+    return run_uv([uv, 'tool', 'uninstall', 'ezyplatform-cli'], 'ezy was removed. Reinstall any time with the install line in the README.')
