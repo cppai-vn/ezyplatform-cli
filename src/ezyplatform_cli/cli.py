@@ -122,7 +122,17 @@ def exit_code(exc):
     return 1
 
 
+def safe_output():
+    """Never crash on ✓ and other non-ASCII output in a cp1252 Windows console or pipe."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors='replace')
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv=None):
+    safe_output()
     argv = sys.argv[1:] if argv is None else argv
     info = skills_info()
     if not argv or argv[0] in ('-h', '--help', 'help'):

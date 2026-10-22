@@ -2,6 +2,8 @@
 
 No real Docker: state(), the docker commands and the HTTP probes are mocked.
 """
+import contextlib
+import io
 import json
 import os
 import stat
@@ -110,7 +112,8 @@ class StartTest(unittest.TestCase):
                 mock.patch.object(local_stack.time, 'sleep', side_effect=sleep), \
                 mock.patch.object(local_stack.time, 'time', side_effect=lambda: clock[0]):
             env = {'EZY_ADMIN_PORT': '9090', 'EZY_WEB_PORT': '8080'}
-            self.assertTrue(local_stack.start('.', env))
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertTrue(local_stack.start('.', env))
         self.assertEqual(calls[0], ['docker', 'compose', 'up', '-d'])
         self.assertIn(['docker', 'compose', 'restart', 'ezyplatform'], calls)
 
