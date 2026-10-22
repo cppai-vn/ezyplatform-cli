@@ -26,6 +26,9 @@ class LocalProjectTest(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.dir = os.path.join(tmp.name, 'site')
+        used = mock.patch.object(local_stack, 'compose_project_used', return_value=[])
+        self.used = used.start()
+        self.addCleanup(used.stop)
 
     def envs(self):
         return json.loads(read(os.path.join(self.dir, 'environment.json')))
@@ -62,6 +65,22 @@ class LocalProjectTest(unittest.TestCase):
         first = local_stack.read_env(self.dir)
         run('new', self.dir, '--mode', 'local', '--no-start')
         self.assertEqual(local_stack.read_env(self.dir), first)
+
+    def test_every_new_project_gets_its_own_docker_project(self):
+        other = os.path.join(os.path.dirname(self.dir), 'other', 'site')  # same folder name elsewhere
+        run('new', self.dir, '--mode', 'local', '--no-start')
+        run('new', other, '--mode', 'local', '--no-start')
+        first = local_stack.read_env(self.dir)['COMPOSE_PROJECT_NAME']
+        second = local_stack.read_env(other)['COMPOSE_PROJECT_NAME']
+        self.assertTrue(first.startswith('ezy-site-') and second.startswith('ezy-site-'))
+        self.assertNotEqual(first, second)
+
+    def test_a_name_docker_already_uses_is_never_reused(self):
+        # e.g. leftover volumes: their MySQL keeps old passwords, a new .env would get "Access denied"
+        taken = []
+        self.used.side_effect = lambda name: ['old-volume'] if not taken and not taken.append(name) else []
+        run('new', self.dir, '--mode', 'local', '--no-start')
+        self.assertNotEqual(local_stack.read_env(self.dir)['COMPOSE_PROJECT_NAME'], taken[0])
 
     def test_live_mode_writes_no_docker_files(self):
         code, out = run('new', self.dir, '--mode', 'live', '--admin-url', 'https://admin.example.test')

@@ -86,6 +86,33 @@ def project_name(root):
     return 'ezy-' + (slug or 'site')
 
 
+def compose_project_used(name):
+    """Docker volumes or containers already labelled with this compose project (none when Docker is absent)."""
+    found = []
+    for kind in (['volume', 'ls'], ['ps', '-a']):
+        try:
+            out = subprocess.run(['docker'] + kind + ['-q', '--filter', f'label=com.docker.compose.project={name}'],
+                                 capture_output=True, text=True, timeout=30).stdout
+        except (OSError, subprocess.SubprocessError):
+            return []
+        found += out.split()
+    return found
+
+
+def new_project_name(root):
+    """A compose project name of its own for every new project: `ezy-<folder>-<random>`.
+
+    Containers, volumes and the network are named after it, so two projects never share
+    a database, even with the same folder name or a folder deleted and created again
+    (MySQL keeps the passwords of its first start, so reusing an old volume with the new
+    passwords of a new .env fails with "Access denied").
+    """
+    while True:
+        name = f'{project_name(root)}-{secrets.token_hex(3)}'
+        if not compose_project_used(name):
+            return name
+
+
 def port_free(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         try:
@@ -120,7 +147,7 @@ def write_files(root, report):
     if not env:
         admin = free_port(9090)
         env = {
-            'COMPOSE_PROJECT_NAME': project_name(root),
+            'COMPOSE_PROJECT_NAME': new_project_name(root),
             'EZY_IMAGE': IMAGE,
             'EZY_ADMIN_PORT': str(admin),
             'EZY_WEB_PORT': str(free_port(8080, {admin})),
@@ -134,7 +161,7 @@ def write_files(root, report):
             fh.write('# Local EzyPlatform settings for docker-compose.yml (git-ignored; keep it private)\n')
             fh.write(''.join(f'{k}={v}\n' for k, v in env.items()))
         os.chmod(path, 0o600)
-        report.append(f'  + {ENV_FILE} (local ports and generated database passwords)')
+        report.append(f"  + {ENV_FILE} (Docker project {env['COMPOSE_PROJECT_NAME']}, local ports, generated database passwords)")
     else:
         report.append(f'  = {ENV_FILE} (exists, kept)')
     compose = os.path.join(root, COMPOSE_FILE)
@@ -177,6 +204,17 @@ def wait_for(url, ok, timeout=START_TIMEOUT):
     return False
 
 
+def explain_failure(root):
+    try:
+        logs = subprocess.run(['docker', 'compose', 'logs', '--no-color', 'ezyplatform'], cwd=root,
+                              capture_output=True, text=True, timeout=60).stdout
+    except (OSError, subprocess.SubprocessError):
+        return
+    if 'Access denied for user' in logs:
+        print('  ! MySQL rejects the password in .env: its volume was created earlier with other passwords.\n'
+              '    Start over with a fresh database (deletes the local data): docker compose down -v && docker compose up -d')
+
+
 def start(root, env):
     """docker compose up -d, then wait for the admin; True when it answers."""
     print('  $ docker compose up -d   (first run downloads the images, a few minutes)', flush=True)
@@ -189,6 +227,7 @@ def start(root, env):
     if not wait_for(admin + '/login', lambda code: 0 < code < 500):
         print(f'  x the admin did not answer within {START_TIMEOUT // 60} minutes; '
               'check: docker compose logs ezyplatform')
+        explain_failure(root)
         return False
     web_ok = lambda code: 200 <= code < 400  # noqa: E731
     if not wait_for(web, web_ok, timeout=90):

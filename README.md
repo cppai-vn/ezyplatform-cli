@@ -70,7 +70,7 @@ Authoring (`ezy-author`) and routing (`ezy-guide`) are agent instructions, not c
 `ezy new my-site --mode local` (or `both`, or pick it when asked) runs EzyPlatform + MySQL for the project with Docker Compose, the same image and settings as [cppai-vn/ezyplatform-docker](https://github.com/cppai-vn/ezyplatform-docker):
 
 1. Checks Docker and Docker Compose. When missing it offers to install them (`--yes` installs without asking): **macOS** OrbStack via Homebrew, **Linux** Docker Engine + Compose from get.docker.com (asks for your sudo password), **Windows** Docker Desktop via winget (start it and accept its terms). A stopped Docker is started.
-2. Writes `docker-compose.yml` and a git-ignored `.env` with free local ports (admin from 9090, website from 8080) and random database passwords, then runs `docker compose up -d`. The first run downloads about 1 GB and takes a few minutes; on Apple silicon the amd64 image runs emulated.
+2. Writes `docker-compose.yml` and a git-ignored `.env` with its own Docker project name (`ezy-<folder>-<random>`, so every new project gets separate containers, volumes and network, even with the same folder name), free local ports (admin from 9090, website from 8080) and random database passwords, then runs `docker compose up -d`. The first run downloads about 1 GB and takes a few minutes; on Apple silicon the amd64 image runs emulated.
 3. Waits for the admin and the website, adds a `local` environment to `environment.json` and prints the next steps: open `http://127.0.0.1:9090/setup-admin`, create the first super admin, copy its access token from `/admins/me` into the `local` entry, run `ezy check`.
 
 | Mode | `environment.json` |
