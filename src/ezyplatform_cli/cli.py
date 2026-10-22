@@ -19,7 +19,6 @@ PUBLISH = 'ezy-publish/scripts/ezy_publish.py'
 
 # command -> (script, fixed leading arguments, program name shown in usage)
 COMMANDS = {
-    'new': (NEW, ['create'], 'ezy new'),
     'check': (NEW, ['check'], 'ezy check'),
     'token': (NEW, ['token-help'], 'ezy token'),
     'whoami': (CLIENT, ['whoami'], 'ezy whoami'),
@@ -38,6 +37,7 @@ COMMANDS = {
 # command -> (module, function) for commands that manage ezy and the agents
 TOOLS = {
     'init': ('setup_wizard', 'main'),
+    'new': ('project_new', 'main'),
     'plugins': ('agents', 'main'),
     'skills': ('skills_install', 'main'),
     'doctor': ('doctor', 'main'),
@@ -57,7 +57,8 @@ Setup (this computer)
   doctor                         check ezy, agents, plugin/skill duplicates and the current project
 
 Project
-  new [dir] [--admin-url URL]    create a site project (environment.json, AGENTS.md, pages/ ...)
+  new [dir] [--mode live|local|both] [--admin-url URL]
+                                 create a site project; local runs EzyPlatform + MySQL in Docker
   token [admin_url]              how to get the admin access token
   check [dir]                    validate environment.json and the connection
   whoami                         roles of the token owner

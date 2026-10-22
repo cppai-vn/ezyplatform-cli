@@ -49,7 +49,7 @@ ezy publish apply page:home --yes   # backup -> publish -> verify, prints the ro
 | `ezy plugins status\|install\|update [--target all\|claude,codex,copilot,omp,cursor] [--dry-run]` | The plugin per agent, through each agent's own CLI (Cursor: UI steps) | — |
 | `ezy skills status\|install\|verify\|remove [--target opencode] [--dir PATH] [--force]` | Skill copies for agents without plugins; refuses folders where a plugin already loads them | — |
 | `ezy doctor` | ezy version, agents, plugin and skill copies, skills loaded twice, the project in this folder | — |
-| `ezy new [dir] [--admin-url URL] [--copy-skills]` | Create a site project (`environment.json`, `AGENTS.md`, `pages/`, `.gitignore` …) | ezy-new |
+| `ezy new [dir] [--mode live\|local\|both] [--admin-url URL] [--yes] [--no-start] [--copy-skills]` | Create a site project (`environment.json`, `AGENTS.md`, `pages/`, `.gitignore` …). Asks where it runs when `--mode` is omitted — see [Local EzyPlatform](#local-ezyplatform) | ezy-new |
 | `ezy token [admin_url]` | How to get the admin access token | ezy-new |
 | `ezy check [dir]` | Validate `environment.json` and the connection | ezy-new |
 | `ezy update [--cli-only]` · `ezy uninstall` | Latest ezy release, then update the plugin in your agents and ezy's skill copies · remove ezy (asks first, site projects are kept) | — |
@@ -64,6 +64,24 @@ ezy publish apply page:home --yes   # backup -> publish -> verify, prints the ro
 `ezy <command> --help` shows every option. Targets are `page:<slug>` or `fragment:<page_name>/<fragment_name>`. Set `EZY_ENV=<name>` to use a non-default environment from `environment.json`.
 
 Authoring (`ezy-author`) and routing (`ezy-guide`) are agent instructions, not commands: your coding agent gets them from the plugin (`ezy init`). Give each agent the skills one way only — plugin, a skill copy, or a project's `.claude/skills/` from `ezy new --copy-skills` — or it sees every skill twice; `ezy doctor` reports this.
+
+## Local EzyPlatform
+
+`ezy new my-site --mode local` (or `both`, or pick it when asked) runs EzyPlatform + MySQL for the project with Docker Compose, the same image and settings as [cppai-vn/ezyplatform-docker](https://github.com/cppai-vn/ezyplatform-docker):
+
+1. Checks Docker and Docker Compose. When missing it offers to install them (`--yes` installs without asking): **macOS** OrbStack via Homebrew, **Linux** Docker Engine + Compose from get.docker.com (asks for your sudo password), **Windows** Docker Desktop via winget (start it and accept its terms). A stopped Docker is started.
+2. Writes `docker-compose.yml` and a git-ignored `.env` with free local ports (admin from 9090, website from 8080) and random database passwords, then runs `docker compose up -d`. The first run downloads about 1 GB and takes a few minutes; on Apple silicon the amd64 image runs emulated.
+3. Waits for the admin and the website, adds a `local` environment to `environment.json` and prints the next steps: open `http://127.0.0.1:9090/setup-admin`, create the first super admin, copy its access token from `/admins/me` into the `local` entry, run `ezy check`.
+
+| Mode | `environment.json` |
+|---|---|
+| `live` | the live admin only (as before) |
+| `local` | only `local` |
+| `both` | `local` is the default; the live site is used with `EZY_ENV=production ezy …`, so nothing reaches it by accident |
+
+In the project folder: `docker compose stop` / `docker compose up -d` / `docker compose logs -f ezyplatform`; `docker compose down -v` deletes the local data.
+
+The compose file fixes two problems of the image on an empty database: its entrypoint writes a `jdbc:mysql://` URL for the bundled MariaDB 3.x driver (every admin page answered 500), fixed with `DB_NAME=blog?permitMysqlScheme`; and the first boot needs longer than the 180 s startup limit. On the very first start the website answers 404 until the app restarts once, which `ezy new` does for you.
 
 ## Safety
 
@@ -111,7 +129,7 @@ Cài xong mở terminal mới rồi gõ `ezy --version`. Cập nhật: `ezy upda
 **Bắt đầu:**
 
 1. `ezy init` (một lần cho mỗi máy): cài plugin `ezyplatform` vào các coding agent trên máy, hỏi có chép skill cho agent không hỗ trợ plugin không, kiểm tra rồi chạy `ezy doctor`.
-2. `ezy new my-site --admin-url https://admin.example.com` để tạo dự án site, rồi `cd my-site`.
+2. `ezy new my-site` để tạo dự án site, rồi `cd my-site`. Lệnh hỏi dự án chạy ở đâu: **live** (nối với site thật, cần `--admin-url`), **local** (tự dựng EzyPlatform + MySQL bằng Docker trên máy; thiếu Docker thì đề nghị cài) hoặc **cả hai** (local là mặc định, site thật dùng `EZY_ENV=production`). Với local, mở `http://127.0.0.1:9090/setup-admin` tạo tài khoản super admin đầu tiên rồi lấy token ở `/admins/me`.
 3. Vào `https://admin.example.com/admins/me`, bấm hiện **Access Token** (nhập mật khẩu), tự dán vào `environment.json` → mục `"default": true` → `admin_access_token`. Không gửi token cho ai.
 4. `ezy check` để kiểm tra kết nối.
 5. `ezy pull-all --langs vi,en --write` để kéo nội dung về, sửa file, rồi `ezy publish plan page:<slug>` xem trước và `ezy publish apply page:<slug> --yes` để publish (có sao lưu, in sẵn lệnh khôi phục).
