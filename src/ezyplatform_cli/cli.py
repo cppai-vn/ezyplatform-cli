@@ -84,7 +84,7 @@ Tool
   --version
 
 Targets: page:<slug> | fragment:<page_name>/<fragment_name>
-Docs: https://github.com/itsddvn/ezyplatform-cli
+Docs: https://github.com/cppai-vn/ezyplatform-cli
 """
 
 

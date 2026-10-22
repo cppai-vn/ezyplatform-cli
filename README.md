@@ -13,18 +13,18 @@ One line, nothing else needed — the installer sets up [uv](https://docs.astral
 **macOS / Linux**
 
 ```bash
-curl -LsSf https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/cppai-vn/ezyplatform-cli/main/install.sh | sh
 ```
 
 **Windows** (PowerShell)
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/cppai-vn/ezyplatform-cli/main/install.ps1 | iex"
 ```
 
 Open a new terminal afterwards, then `ezy --version`. Upgrade: `ezy update` (from 0.1.2; older versions: run the install line again). Uninstall: `ezy uninstall` (from 0.1.3; older versions: `uv tool uninstall ezyplatform-cli`). Site projects are kept.
 
-Already use uv or pipx? `uv tool install ezyplatform-cli` / `pipx install ezyplatform-cli` (once published on PyPI), or `uv tool install git+https://github.com/itsddvn/ezyplatform-cli` for the latest `main`.
+Already use uv or pipx? `uv tool install ezyplatform-cli` / `pipx install ezyplatform-cli` (once published on PyPI), or `uv tool install git+https://github.com/cppai-vn/ezyplatform-cli` for the latest `main`.
 
 ## Quick start
 
@@ -98,12 +98,12 @@ MIT — see [LICENSE](LICENSE). Bundled starter templates come from the EzyArtic
 
 ```bash
 # macOS / Linux
-curl -LsSf https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/cppai-vn/ezyplatform-cli/main/install.sh | sh
 ```
 
 ```powershell
 # Windows (PowerShell)
-powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/cppai-vn/ezyplatform-cli/main/install.ps1 | iex"
 ```
 
 Cài xong mở terminal mới rồi gõ `ezy --version`. Cập nhật: `ezy update` (từ bản 0.1.2; bản cũ hơn thì chạy lại lệnh cài). Gỡ: `ezy uninstall` (từ bản 0.1.3; bản cũ hơn: `uv tool uninstall ezyplatform-cli`). Thư mục dự án site vẫn được giữ.

@@ -1,14 +1,14 @@
 # Install or upgrade the `ezy` command (EzyPlatform CLI) on Windows.
-#   powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.ps1 | iex"
+#   powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/cppai-vn/ezyplatform-cli/main/install.ps1 | iex"
 # Uses uv (https://docs.astral.sh/uv), installing it first when missing; uv also
 # downloads Python when the machine has no Python 3.9+. Installs from PyPI, or
 # from the latest GitHub release while the package is not on PyPI (set $env:EZY_SOURCE
-# to force a source, e.g. git+https://github.com/itsddvn/ezyplatform-cli for main).
+# to force a source, e.g. git+https://github.com/cppai-vn/ezyplatform-cli for main).
 # $env:EZY_NO_MODIFY_PATH = 1 leaves the user PATH untouched.
 $ErrorActionPreference = 'Stop'
 
 $Pkg = 'ezyplatform-cli'
-$Repo = 'https://github.com/itsddvn/ezyplatform-cli'
+$Repo = 'https://github.com/cppai-vn/ezyplatform-cli'
 
 $uv = (Get-Command uv -ErrorAction SilentlyContinue).Source
 if (-not $uv) {

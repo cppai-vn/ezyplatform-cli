@@ -15,11 +15,11 @@ import urllib.request
 
 from . import __version__
 
-REPO = 'https://github.com/itsddvn/ezyplatform-cli'
-API = 'https://api.github.com/repos/itsddvn/ezyplatform-cli'
+REPO = 'https://github.com/cppai-vn/ezyplatform-cli'
+API = 'https://api.github.com/repos/cppai-vn/ezyplatform-cli'
 WHEEL = REPO + '/releases/download/v{v}/ezyplatform_cli-{v}-py3-none-any.whl'
-INSTALL_HINT = ('  macOS / Linux: curl -LsSf https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.sh | sh\n'
-                '  Windows:       powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/itsddvn/ezyplatform-cli/main/install.ps1 | iex"')
+INSTALL_HINT = ('  macOS / Linux: curl -LsSf https://raw.githubusercontent.com/cppai-vn/ezyplatform-cli/main/install.sh | sh\n'
+                '  Windows:       powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/cppai-vn/ezyplatform-cli/main/install.ps1 | iex"')
 
 
 def latest_version():

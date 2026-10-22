@@ -21,8 +21,8 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/itsddvn/ezyplatform-cli"
-Issues = "https://github.com/itsddvn/ezyplatform-cli/issues"
+Homepage = "https://github.com/cppai-vn/ezyplatform-cli"
+Issues = "https://github.com/cppai-vn/ezyplatform-cli/issues"
 Skills = "https://github.com/cppai-vn/agents-plugins/tree/main/ezyplatform"
 
 [project.scripts]
