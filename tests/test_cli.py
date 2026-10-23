@@ -9,6 +9,7 @@ import unittest
 from unittest import mock
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from ezyplatform_cli import cli
 from ezyplatform_cli.cli import main
 
 ROUTES = {
@@ -60,6 +61,25 @@ class CliTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn('ezyplatform skills', out)
         self.assertEqual(run('nope')[0], 2)
+
+    def test_registry_names_scripts_and_help(self):
+        names = [name for _, commands in cli.GROUPS for command in commands for name in command.names]
+        self.assertEqual(len(names), len(set(names)))
+        _, out = run('--help')
+        for title, commands in cli.GROUPS:
+            for command in commands:
+                if title:
+                    self.assertIn(f'  {command.usage}', out)
+                if hasattr(command.run, 'script'):
+                    self.assertTrue(os.path.isfile(os.path.join(cli.SKILLS, command.run.script)), command.run.script)
+        self.assertEqual(run('upgrade', '--help')[0], 0)
+
+    def test_tool_os_error_is_a_short_error(self):
+        with mock.patch('ezyplatform_cli.doctor.main', side_effect=OSError('disk full')):
+            code, out = run('doctor')
+        self.assertEqual(code, 2)
+        self.assertIn('ezy: disk full', out)
+        self.assertNotIn('Traceback', out)
 
     def test_subcommand_help_uses_ezy_names(self):
         for cmd in ('sync', 'publish', 'media', 'i18n', 'verify', 'mail', 'new', 'init', 'plugins', 'skills'):
