@@ -67,7 +67,7 @@ Authoring (`ezy-author`) and routing (`ezy-guide`) are agent instructions, not c
 
 ## Local EzyPlatform
 
-`ezy new my-site --mode local` (or `both`, or pick it when asked) runs EzyPlatform + MySQL for the project with Docker Compose, the same image and settings as [cppai-vn/ezyplatform-docker](https://github.com/cppai-vn/ezyplatform-docker):
+`ezy new my-site --mode local` (or `both`, or pick it when asked) runs EzyPlatform + MySQL for the project with Docker Compose, the same image and settings as [cppai-vn/ezyplatform-docker](https://github.com/cppai-vn/ezyplatform-docker) (EzyPlatform 1.5.4 with EzyArticle preinstalled and activated, so `ezy` can manage pages, posts and fragments right away; set `EZY_LOCAL_IMAGE` to use another image):
 
 1. Checks Docker and Docker Compose. When missing it offers to install them (`--yes` installs without asking): **macOS** OrbStack via Homebrew, **Linux** Docker Engine + Compose from get.docker.com (asks for your sudo password), **Windows** Docker Desktop via winget (start it and accept its terms). A stopped Docker is started.
 2. Writes `docker-compose.yml` and a git-ignored `.env` with its own Docker project name (`ezy-<folder>-<random>`, so every new project gets separate containers, volumes and network, even with the same folder name), free local ports (admin from 9090, website from 8080) and random database passwords, then runs `docker compose up -d`. The first run downloads about 1 GB and takes a few minutes; on Apple silicon the amd64 image runs emulated.
@@ -129,7 +129,7 @@ Cài xong mở terminal mới rồi gõ `ezy --version`. Cập nhật: `ezy upda
 **Bắt đầu:**
 
 1. `ezy init` (một lần cho mỗi máy): cài plugin `ezyplatform` vào các coding agent trên máy, hỏi có chép skill cho agent không hỗ trợ plugin không, kiểm tra rồi chạy `ezy doctor`.
-2. `ezy new my-site` để tạo dự án site, rồi `cd my-site`. Lệnh hỏi dự án chạy ở đâu: **live** (nối với site thật, cần `--admin-url`), **local** (tự dựng EzyPlatform + MySQL bằng Docker trên máy; thiếu Docker thì đề nghị cài) hoặc **cả hai** (local là mặc định, site thật dùng `EZY_ENV=production`). Với local, mở `http://127.0.0.1:9090/setup-admin` tạo tài khoản super admin đầu tiên rồi lấy token ở `/admins/me`.
+2. `ezy new my-site` để tạo dự án site, rồi `cd my-site`. Lệnh hỏi dự án chạy ở đâu: **live** (nối với site thật, cần `--admin-url`), **local** (tự dựng EzyPlatform + MySQL bằng Docker trên máy; thiếu Docker thì đề nghị cài) hoặc **cả hai** (local là mặc định, site thật dùng `EZY_ENV=production`). Với local, image đã có sẵn EzyPlatform 1.5.4 và EzyArticle; mở `http://127.0.0.1:9090/setup-admin` tạo tài khoản super admin đầu tiên rồi lấy token ở `/admins/me`.
 3. Vào `https://admin.example.com/admins/me`, bấm hiện **Access Token** (nhập mật khẩu), tự dán vào `environment.json` → mục `"default": true` → `admin_access_token`. Không gửi token cho ai.
 4. `ezy check` để kiểm tra kết nối.
 5. `ezy pull-all --langs vi,en --write` để kéo nội dung về, sửa file, rồi `ezy publish plan page:<slug>` xem trước và `ezy publish apply page:<slug> --yes` để publish (có sao lưu, in sẵn lệnh khôi phục).
