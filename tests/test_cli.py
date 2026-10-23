@@ -9,6 +9,7 @@ import unittest
 from unittest import mock
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from ezyplatform_cli import cli
 from ezyplatform_cli.cli import main
 
 ROUTES = {
@@ -62,11 +63,29 @@ class CliTest(unittest.TestCase):
         self.assertEqual(run('nope')[0], 2)
 
     def test_subcommand_help_uses_ezy_names(self):
-        for cmd in ('sync', 'publish', 'media', 'i18n', 'verify', 'mail', 'new', 'init', 'plugins', 'skills'):
+        for cmd in ('new', 'init', 'plugins', 'skills', 'check', 'token', 'whoami'):
             code, out = run(cmd, '--help')
             self.assertEqual(code, 0, cmd)
             self.assertIn('usage: ezy ', out)
             self.assertNotIn('python3 ezy_', out)
+
+    def test_site_operations_handoff_to_plugins_without_executing(self):
+        removed = ('get', 'content', 'sync', 'status', 'pull', 'pull-all', 'publish', 'media', 'i18n', 'mail', 'verify')
+        with mock.patch.object(cli, 'run_script', side_effect=AssertionError('site script must not run')) as execute:
+            for command in removed:
+                for option in ('--help', '--yes'):
+                    with self.subTest(command=command, option=option):
+                        code, out = run(command, option, cwd=self.dir)
+                        self.assertEqual(code, 2)
+                        self.assertIn('handled by the ezyplatform plugin', out)
+                        self.assertIn('coding agent', out)
+                        self.assertIn('ezy init', out)
+            execute.assert_not_called()
+        self.assertEqual(os.listdir(self.dir), [])
+        code, help_text = run('--help')
+        for command in removed:
+            self.assertNotRegex(help_text, rf'(?m)^  {command}(?: |$)')
+        self.assertNotIn('Publish (', help_text)
 
     def test_init_with_a_folder_points_to_new(self):
         code, out = run('init', self.dir, '--admin-url', 'https://admin.example.test')
@@ -86,7 +105,7 @@ class CliTest(unittest.TestCase):
 
     def test_unreachable_server_is_a_short_error(self):
         run('new', self.dir, '--admin-url', 'http://127.0.0.1:9')
-        code, out = run('status', cwd=self.dir)
+        code, out = run('whoami', cwd=self.dir)
         self.assertEqual(code, 2)
         self.assertIn('cannot reach the admin server', out)
         self.assertNotIn('Traceback', out)
@@ -96,6 +115,8 @@ class CliTest(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertTrue(os.path.isfile(os.path.join(self.dir, '.claude/skills/ezy-guide/SKILL.md')))
         self.assertTrue(os.path.isfile(os.path.join(self.dir, '.claude/skills/ezy-shared/ezy_client.py')))
+        for skill, script in [('ezy-publish', 'ezy_publish.py'), ('ezy-sync', 'ezy_sync.py')]:
+            self.assertTrue(os.path.isfile(os.path.join(self.dir, '.claude/skills', skill, 'scripts', script)))
 
     def test_check_and_whoami_against_server(self):
         server = HTTPServer(('127.0.0.1', 0), StubAdmin)

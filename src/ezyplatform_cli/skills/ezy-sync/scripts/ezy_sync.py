@@ -2,10 +2,10 @@
 """Compare and pull EzyArticle pages / page fragments between the server and local files.
 
 Usage:
-    ezy sync status [target ...]            # every local target when none given
-    ezy sync pull <target> [--lang LANG] [--write]
-    ezy sync pull-all [--langs en,vi] [--only page_name ...] [--skip-placeholders] [--write]
-    ezy sync discover-pages [--write]
+    python3 ezy_sync.py status [target ...]            # every local target when none given
+    python3 ezy_sync.py pull <target> [--lang LANG] [--write]
+    python3 ezy_sync.py pull-all [--langs en,vi] [--only page_name ...] [--skip-placeholders] [--write]
+    python3 ezy_sync.py discover-pages [--write]
 
 Targets: page:<slug> | fragment:<page_name>/<fragment_name>
 `pull`/`pull-all` are dry runs unless --write is given. They write content/head/foot
@@ -26,6 +26,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'ezy-shared'))
 import ezy_client  # noqa: E402
+from ezy_output import print_status  # noqa: E402
 import ezy_local  # noqa: E402
 
 COMPARED = ('content', 'additionalHead', 'additionalFoot', 'title', 'summary')
@@ -87,14 +88,24 @@ def compare(target, lang, root, env):
 def cmd_status(args, root, env):
     targets = args.targets or ezy_local.list_targets(root)
     dirty = 0
+    local_only = 0
     for target in targets:
         folder = ezy_local.target_dir(root, target)
         for lang in [None] + ezy_local.languages(folder):
             for row in compare(target, lang, root, env):
                 if row[3] != 'match' and not row[3].startswith('local only'):
                     dirty += 1
-                print(f'{row[0]:34} {row[1]:8} {row[2]:15} {row[3]}')
-    print(f'\n{dirty} difference(s)' if dirty else '\nlocal and server are in sync')
+                draft = row[3].startswith('local only')
+                local_only += draft
+                print_status(f'{row[0]:34} {row[1]:8} {row[2]:15} {row[3]}',
+                             None if draft else row[3] == 'match')
+    print()
+    if dirty:
+        print_status(f'{dirty} difference(s)', False)
+    elif local_only:
+        print_status(f'no differences; {local_only} local-only draft(s) not on server yet')
+    else:
+        print_status('local and server are in sync', True)
     return 1 if dirty else 0
 
 
@@ -240,5 +251,5 @@ if __name__ == '__main__':
     try:
         sys.exit(main())
     except ezy_client.EzyError as err:
-        print(f'error: {err}', file=sys.stderr)
+        print_status(f'error: {err}', False, file=sys.stderr)
         sys.exit(2)

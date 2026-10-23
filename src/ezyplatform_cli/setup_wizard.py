@@ -11,6 +11,7 @@ import argparse
 import sys
 
 from . import agents, doctor, skills_install
+from .status_output import print_status
 
 
 def ask(question, assume_yes, default=True):
@@ -42,8 +43,7 @@ def main(args):
 
     print('1. Coding agents on this computer')
     names = agents.parse_targets(opts.target)
-    rows = agents.status_rows(names)
-    agents.print_status(rows=rows)
+    rows = agents.status_rows(names, progress=True)
     found = [r[0] for r in rows if r[2]]
 
     print('\n2. Plugin ezyplatform@cppai')
@@ -80,11 +80,11 @@ def main(args):
     for name in installed:
         state = agents.plugin_installed(name)
         ok &= bool(state)
-        print(f"  {'✓' if state else 'x'} {agents.AGENTS[name]['label']}: plugin {'listed' if state else 'not listed'}")
+        print_status(f"{agents.AGENTS[name]['label']}: plugin {'listed' if state else 'not listed'}", bool(state))
     for dest in copied:
         result = skills_install.verify(dest)
         ok &= result == 'ok'
-        print(f"  {'✓' if result == 'ok' else 'x'} {dest}: {result}")
+        print_status(f'{dest}: {result}', result == 'ok')
     if not installed and not copied:
         print('  nothing new was installed')
 

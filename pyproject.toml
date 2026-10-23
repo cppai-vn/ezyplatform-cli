@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "ezyplatform-cli"
 dynamic = ["version"]
-description = "ezy: manage EzyPlatform / EzyArticle sites from a local project (init, sync, publish with backup and rollback, media, i18n, mail, verify)."
+description = "ezy: set up EzyPlatform projects, manage coding-agent plugins and skills, and check the local environment and site connection."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"

@@ -2,12 +2,12 @@
 """EzyMail delivery health, mail templates and the EzySupport Contact Us form flow.
 
 Usage:
-    ezy mail status                                   # read-only health report
-    ezy mail templates                                # local mail-templates/ vs server
-    ezy mail pull <template_name> [--write]
-    ezy mail push <template_name> [--yes]
-    ezy mail contact-settings [--response-mail on|off] [--supporter-emails a@x,b@y] [--yes]
-    ezy mail test-contact --email <inbox you own> [--yes]
+    python3 ezy_mail.py status                                   # read-only health report
+    python3 ezy_mail.py templates                                # local mail-templates/ vs server
+    python3 ezy_mail.py pull <template_name> [--write]
+    python3 ezy_mail.py push <template_name> [--yes]
+    python3 ezy_mail.py contact-settings [--response-mail on|off] [--supporter-emails a@x,b@y] [--yes]
+    python3 ezy_mail.py test-contact --email <inbox you own> [--yes]
 
 Every write is a dry run unless --yes is given. Delivery-service credentials
 (SMTP password, API keys) are never read, printed or written: the human enters
@@ -27,6 +27,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'ezy-shared'))
 import ezy_client  # noqa: E402
+from ezy_output import print_status  # noqa: E402
 
 TEMPLATE_FILES = {'title.html': 'titleTemplate', 'content.html': 'contentTemplate'}
 CONTACT_FIELDS = ('contactUsYourName', 'contactUsYourEmail', 'contactUsSubject', 'contactUsMessage')
@@ -91,40 +92,42 @@ def cmd_status(args, root, env):
     services = delivery_services(env)
     default = next((s for s in services if s[2]), None)
     if not default:
-        print('  ! no default delivery service found')
+        print_status('no default delivery service found', False)
     else:
         fields = form_values(ezy_client.request_text(f'/ezymail/settings/mail-delivery-services/{default[0]}', env), 'mailSettingsForm')
         empty = [k for k, v in fields.items() if v == '' and not k.lower().endswith('password')]
         password = [k for k in fields if k.lower().endswith('password')]
-        print(f'  default: {default[1]} ({default[0]})')
+        print_status(f'default: {default[1]} ({default[0]})', True)
         for key in ('defaultSenderName', 'defaultSender', 'mailHost', 'mailPort', 'mailUsername'):
             if key in fields:
-                print(f'  {key}: {fields[key] or "(empty)"}')
+                print_status(f'{key}: {fields[key] or "(empty)"}', bool(fields[key]))
         for key in password:
-            print(f"  {key}: {'set' if fields[key] else '(empty)'}")
+            print_status(f"{key}: {'set' if fields[key] else '(empty)'}", True if fields[key] else None)
         if empty:
-            print(f"  ! empty fields: {', '.join(empty)}; every mail fails until they are filled in the admin")
+            print_status(f"empty fields: {', '.join(empty)}; every mail fails until they are filled in the admin", False)
     mails = (ezy_client.request_json('GET', '/ezymail/api/v1/mails?limit=200', env=env) or {}).get('items') or []
     counts = collections.Counter(m.get('status') for m in mails)
-    print(f"\nLast {len(mails)} mail(s): {dict(counts) or 'none'}")
+    print()
+    health = False if counts.get('SEND_ERROR') else True if mails and set(counts) == {'SENT'} else None
+    print_status(f"Last {len(mails)} mail(s): {dict(counts) or 'none'}", health)
     last_sent = next((m for m in mails if m.get('status') == 'SENT'), None)
     last_error = next((m for m in mails if m.get('status') == 'SEND_ERROR'), None)
-    print(f"  last SENT: {stamp(last_sent['createdAt']) if last_sent else 'never (in this window)'}")
+    print_status(f"last SENT: {stamp(last_sent['createdAt']) if last_sent else 'never (in this window)'}", True if last_sent else None)
     if last_error:
-        print(f"  last SEND_ERROR: {stamp(last_error['createdAt'])} {last_error.get('title', '')[:60]!r}")
+        print_status(f"last SEND_ERROR: {stamp(last_error['createdAt'])} {last_error.get('title', '')[:60]!r}", False)
     if mails and not last_sent:
-        print('  ! nothing was delivered: fix the delivery service before building features that send mail')
+        print_status('nothing was delivered: fix the delivery service before building features that send mail', False if last_error else None)
     print('\nEzySupport Contact Us')
     try:
         cs = contact_settings(env)
         for key in ('enableContactUs', 'enableContactUsResponseMail', 'supporterEmails', 'acceptedContactUsMetadataKeys'):
-            print(f"  {key}: {cs.get(key) if cs.get(key) not in ('', None) else '(empty)'}")
+            print_status(f"{key}: {cs.get(key) if cs.get(key) not in ('', None) else '(empty)'}")
         if cs.get('enableContactUs') and not cs.get('supporterEmails'):
-            print('  ! no supporter emails: nobody is notified of new contact requests')
+            print_status('no supporter emails: nobody is notified of new contact requests', False)
         total = (ezy_client.request_json('GET', '/ezysupport/api/v1/contact-us?limit=1', env=env) or {}).get('total')
-        print(f'  stored requests: {total}')
+        print_status(f'stored requests: {total}', True if total is not None else None)
     except (ezy_client.EzyError, SystemExit) as err:
-        print(f'  EzySupport not available: {err}')
+        print_status(f'EzySupport not available: {err}', False)
     return 0
 
 
@@ -245,7 +248,7 @@ def cmd_contact_settings(args, root, env):
     after = contact_settings(env)
     drift = {k: (wanted.get(k), after.get(k)) for k in set(wanted) | set(after) if wanted.get(k) != after.get(k)}
     print(f'backup: {os.path.relpath(backup, root)}')
-    print('saved and verified (no other setting changed)' if not drift else f'! differs after reload: {drift}')
+    print_status('saved and verified (no other setting changed)' if not drift else f'differs after reload: {drift}', not drift)
     return 0 if not drift else 2
 
 
@@ -312,5 +315,5 @@ if __name__ == '__main__':
     try:
         sys.exit(main())
     except ezy_client.EzyError as err:
-        print(f'error: {err}', file=sys.stderr)
+        print_status(f'error: {err}', False, file=sys.stderr)
         sys.exit(2)

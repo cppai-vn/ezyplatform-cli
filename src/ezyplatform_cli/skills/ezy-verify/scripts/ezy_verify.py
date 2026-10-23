@@ -2,12 +2,12 @@
 """Preview locally and check the live site for EzyArticle pages.
 
 Usage:
-    ezy verify preview <slug> [--lang LANG]
+    python3 ezy_verify.py preview <slug> [--lang LANG]
         Inline every <ezy:block ezy:replace="~{page/fragment :: region}"/> with the
         local fragment file and write .artifacts/preview/<slug>[.<lang>].html.
         Thymeleaf (th:*, ezyfunctions, #messages) is NOT executed: dynamic parts
         such as server menus stay empty, so judge layout and styling only.
-    ezy verify live [path] [--lang LANG] [--expect TEXT ...]
+    python3 ezy_verify.py live [path] [--lang LANG] [--expect TEXT ...]
         Fetch the public page and report HTTP status, size, unrendered template
         markers and whether each expected text is present.
 """
@@ -20,6 +20,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'ezy-shared'))
 import ezy_client  # noqa: E402
+from ezy_output import print_status  # noqa: E402
 import ezy_local  # noqa: E402
 
 INCLUDE = re.compile(r'<ezy:block\s+ezy:replace="~\{([\w-]+)/([\w-]+)\s*::\s*(content|head|foot)\}"\s*/>')
@@ -64,18 +65,18 @@ def cmd_live(args, root):
     url = web + path + (('&' if '?' in path else '?') + f'lang={args.lang}' if args.lang else '')
     req = urllib.request.Request(url, headers={'User-Agent': ezy_client.USER_AGENT})
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             status, html = resp.status, resp.read().decode(errors='replace')
     except urllib.error.HTTPError as err:
         status, html = err.code, err.read().decode(errors='replace')
-    print(f'{url} -> HTTP {status}, {len(html)} chars')
+    print_status(f'{url} -> HTTP {status}, {len(html)} chars', status == 200)
     markers = UNRENDERED.findall(html)
-    print(f'unrendered template markers: {len(markers)}' + (f' e.g. {markers[:3]}' if markers else ''))
+    print_status(f'unrendered template markers: {len(markers)}' + (f' e.g. {markers[:3]}' if markers else ''), not markers)
     failed = 0
     for text in args.expect or []:
         ok = text in html
         failed += not ok
-        print(f"  {'✓' if ok else 'x'} contains {text!r}")
+        print_status(f"contains {text!r}", ok)
     return 0 if status == 200 and not markers and not failed else 1
 
 
@@ -98,5 +99,5 @@ if __name__ == '__main__':
     try:
         sys.exit(main())
     except ezy_client.EzyError as err:
-        print(f'error: {err}', file=sys.stderr)
+        print_status(f'error: {err}', False, file=sys.stderr)
         sys.exit(2)

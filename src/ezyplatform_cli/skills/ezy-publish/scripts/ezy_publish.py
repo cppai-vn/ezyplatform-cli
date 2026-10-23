@@ -2,10 +2,10 @@
 """Publish local EzyArticle pages / fragments to the live site, with backup, verify and restore.
 
 Usage:
-    ezy publish plan  <target> [...] [--lang LANG]      # dry run, no writes
-    ezy publish apply <target> [...] [--lang LANG] --yes
-    ezy publish restore <backup-dir> --yes
-    ezy publish remove <target> [...] [--force] [--yes]   # move to Trash
+    python3 ezy_publish.py plan  <target> [...] [--lang LANG]      # dry run, no writes
+    python3 ezy_publish.py apply <target> [...] [--lang LANG] --yes
+    python3 ezy_publish.py restore <backup-dir> --yes
+    python3 ezy_publish.py remove <target> [...] [--force] [--yes]   # move to Trash
 
 Targets: page:<slug> | fragment:<page_name>/<fragment_name> | post:<slug> (remove only)
 
@@ -29,6 +29,7 @@ import datetime
 import json
 import os
 import re
+import shlex
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'ezy-shared'))
@@ -36,6 +37,11 @@ import ezy_client  # noqa: E402
 import ezy_local  # noqa: E402
 
 SENT = ('content', 'additionalHead', 'additionalFoot', 'title')
+
+
+def restore_command(backup, root):
+    return shlex.join(['python3', os.path.relpath(__file__, root), 'restore',
+                       os.path.relpath(backup, root), '--yes'])
 
 
 def fetch_live(target, lang, env):
@@ -118,11 +124,11 @@ def cmd_plan_or_apply(args, root, env):
         try:
             ezy_client.put_post(job['live']['id'], body, env)
         except ezy_client.EzyError as err:
-            print(f"  x {job['target']} [{job['lang'] or 'default'}] failed: {err}\n  stopped; earlier steps stay live, restore with: restore {os.path.relpath(backup, root)} --yes")
+            print(f"  x {job['target']} [{job['lang'] or 'default'}] failed: {err}\n  stopped; earlier steps stay live, restore with: {restore_command(backup, root)}")
             return 2
         bad = verify(job, env)
         print(f"  ✓ {job['target']} [{job['lang'] or 'default'}] published" + (f' but differs after reload: {bad}' if bad else ' and verified'))
-    print(f'\nrollback: ezy publish restore {os.path.relpath(backup, root)} --yes')
+    print(f'\nrollback: {restore_command(backup, root)}')
     return 0
 
 
@@ -197,7 +203,7 @@ def cmd_remove(args, root, env):
     for target, post in posts:
         ok = target not in failed and post['id'] not in listed
         print(f"  {'✓' if ok else 'x'} {target} {'in Trash and gone from the post list' if ok else 'NOT removed'}")
-    print(f'\nundo: ezy publish restore {os.path.relpath(backup, root)} --yes')
+    print(f'\nundo: {restore_command(backup, root)}')
     print('note: the public URL of a removed page shows the theme "not found" page, often with HTTP 200, not 404')
     return 2 if failed else 0
 

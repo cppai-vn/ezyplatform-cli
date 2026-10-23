@@ -32,6 +32,7 @@ SKILL_DIR = os.path.dirname(HERE)
 SKILLS_ROOT = os.path.dirname(SKILL_DIR)
 TEMPLATES = os.path.join(SKILL_DIR, 'templates')
 sys.path.insert(0, os.path.join(SKILLS_ROOT, 'ezy-shared'))
+from ezy_output import print_status  # noqa: E402
 
 TOKEN_PLACEHOLDER = '<Your admin access token>'
 URL_PLACEHOLDER_RE = re.compile(r'^<.*>$')
@@ -177,7 +178,8 @@ def print_token_help(admin_url, root=None):
      Also set "admin_url" to {base if base != '<admin_url>' else 'your admin URL, e.g. https://admin.example.com'}.
      Do not send the token in chat; it grants the full rights of that admin account.
      Remove the "beta" entry if you have no beta server.
-  4. Validate: ezy check{' ' + shlex.quote(root) if root else ''}""")
+  4. Validate: ezy check{' ' + shlex.quote(root) if root else ''}
+  5. Open this project in your coding agent and use the installed ezy-guide skill for content work.""")
 
 
 def cmd_check(args):
@@ -185,12 +187,12 @@ def cmd_check(args):
     env_path = os.path.join(root, 'environment.json')
     problems = []
     if not os.path.isfile(env_path):
-        print(f'x environment.json missing in {root}; run "create" first')
+        print_status(f'environment.json missing in {root}; run "ezy new" first', False)
         return 1
     try:
         envs = json.load(open(env_path, encoding='utf-8'))
     except ValueError as err:
-        print(f'x environment.json is not valid JSON: {err}')
+        print_status(f'environment.json is not valid JSON: {err}', False)
         return 1
     defaults = [e for e in envs if e.get('default')] if isinstance(envs, list) else []
     if len(defaults) != 1:
@@ -206,9 +208,12 @@ def cmd_check(args):
     if not os.path.isfile(gitignore) or 'environment.json' not in open(gitignore, encoding='utf-8').read().split():
         problems.append('.gitignore does not ignore environment.json (the token would be committed)')
     if os.stat(env_path).st_mode & (stat.S_IRGRP | stat.S_IROTH):
-        print('! environment.json is readable by other users; consider: chmod 600 environment.json')
+        print_status('environment.json is readable by other users; consider: chmod 600 environment.json')
     if problems:
-        print('x not ready:\n  - ' + '\n  - '.join(problems) + '\n')
+        print_status('not ready:', False)
+        for problem in problems:
+            print_status(problem, False)
+        print()
         print_token_help(url, root)
         return 1
 
@@ -219,19 +224,19 @@ def cmd_check(args):
         fragments = ezy_client.request_json('GET', '/ezyarticle/api/v1/pages/fragments?keyword=', env=env) or {}
     except ezy_client.EzyError as err:
         hint = {401: 'token rejected: copy it again from /admins/me', 403: 'blocked or forbidden: check the URL and that the token belongs to an admin'}
-        print(f'x connection failed: HTTP {err.status} — {hint.get(err.status, err.body[:200])}')
+        print_status(f'connection failed: HTTP {err.status} — {hint.get(err.status, err.body[:200])}', False)
         return 1
     except OSError as err:
-        print(f'x cannot reach {url}: {err}')
+        print_status(f'cannot reach {url}: {err}', False)
         return 1
-    print(f"✓ connected to {url} as environment '{env.get('name')}'")
-    print(f"  roles: {', '.join(roles) or 'none'}" + ('  (full admin rights — keep this token private)' if 'super_admin' in roles else ''))
-    print(f'  public site: {web}')
-    print(f'  fragment groups on server: {len(fragments)} ({sum(len(v) for v in fragments.values())} fragments)')
+    print_status(f"connected to {url} as environment '{env.get('name')}'", True)
+    print_status(f"roles: {', '.join(roles) or 'none'}" + ('  (full admin rights — keep this token private)' if 'super_admin' in roles else ''), True)
+    print_status(f'public site: {web}', True)
+    print_status(f'fragment groups on server: {len(fragments)} ({sum(len(v) for v in fragments.values())} fragments)', True)
     local_pages = sorted(os.listdir(os.path.join(root, 'pages'))) if os.path.isdir(os.path.join(root, 'pages')) else []
-    print(f"  local pages: {', '.join(local_pages) or 'none'}")
-    print('\nNext: pull content with ezy-sync (pull-all --langs <langs>, then pull page:<slug> --write for each page), '
-          'then follow ezy-guide.')
+    print_status(f"local pages: {', '.join(local_pages) or 'none'}")
+    print('\nNext: open this project in your coding agent and use the installed ezy-guide skill. '
+          'It routes content work to ezy-sync, ezy-author, ezy-publish and the other installed skills.')
     return 0
 
 

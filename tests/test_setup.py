@@ -97,6 +97,7 @@ class SetupTest(unittest.TestCase):
         code, out = run('skills', 'install', '--dir', claude_skills)
         self.assertEqual(code, 1)
         self.assertIn('would appear twice', out)
+        self.assertTrue(out.startswith('✗ '), out)
         self.assertFalse(os.path.exists(os.path.join(claude_skills, 'ezy-guide')))
         run('skills', 'install', '--dir', claude_skills, '--force')
         code, out = run('doctor')
@@ -104,6 +105,7 @@ class SetupTest(unittest.TestCase):
         self.assertIn('skills loaded twice', out)
         code, out = run('skills', 'remove', '--dir', claude_skills)
         self.assertEqual(code, 0, out)
+        self.assertTrue(out.startswith('✓ '), out)
         self.assertFalse(os.path.exists(os.path.join(claude_skills, 'ezy-guide')))
 
     def test_users_own_ezy_skill_survives_remove_and_refresh(self):

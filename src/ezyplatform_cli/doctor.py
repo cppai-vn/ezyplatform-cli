@@ -10,6 +10,7 @@ import platform
 import sys
 
 from . import __version__, agents, self_update, skills_install
+from .status_output import print_status
 
 
 def project_root(start):
@@ -43,21 +44,27 @@ def main(args):
         print('usage: ezy doctor\n\n' + __doc__)
         return 0
     problems = []
-    print('ezy')
+    print('ezy', flush=True)
     try:
-        latest = self_update.latest_version()
+        latest = self_update.latest_version(timeout=10)
         newer = self_update.parse(latest) > self_update.parse(__version__)
-        print(f'  version   {__version__}' + (f'  (update available: {latest}, run: ezy update)' if newer else '  (latest)'))
+        print_status(f'version   {__version__}' + (f'  (update available: {latest}, run: ezy update)' if newer else '  (latest)'),
+                     None if newer else True)
     except OSError:
-        print(f'  version   {__version__}  (could not check for updates)')
-    print(f"  skills    ezyplatform {skills_install.bundled_info().get('version', '?')}")
-    print(f'  python    {platform.python_version()}  ({sys.executable})')
-    print(f"  uv        {self_update.find_uv() or 'not found'}   installed with: {self_update.installer()}")
+        print_status(f'version   {__version__}  (could not check for updates)', False)
+    skills_version = skills_install.bundled_info().get('version')
+    print_status(f"skills    ezyplatform {skills_version or '?'}", bool(skills_version))
+    print_status(f'python    {platform.python_version()}  ({sys.executable})', True)
+    uv = self_update.find_uv()
+    print_status(f"uv        {uv or 'not found'}   installed with: {self_update.installer()}", bool(uv))
 
-    print('\nCoding agents (plugin ezyplatform@cppai)')
-    rows = agents.status_rows()
-    agents.print_status(rows=rows)
-    if not any(r[2] and r[3] for r in rows):
+    print('\nCoding agents (plugin ezyplatform@cppai)', flush=True)
+    rows = agents.status_rows(progress=True)
+    unknown = [r[0] for r in rows if r[2] and r[3] is None and not agents.AGENTS[r[0]].get('manual')]
+    if unknown:
+        problems.append('could not check plugins for ' + ', '.join(unknown)
+                        + ': retry ezy plugins status --target ' + ','.join(unknown))
+    if not unknown and not any(r[2] and r[3] for r in rows):
         problems.append('no agent has the ezyplatform plugin: ezy plugins install')
     missing = [r[0] for r in rows if r[2] and r[3] is False]
     if missing:
@@ -66,11 +73,11 @@ def main(args):
     print('\nSkill copies')
     copies = skills_install.copies()
     for dest, result in copies:
-        print(f'  {dest:50} {result}')
+        print_status(f'{dest:50} {result}', result == 'ok')
         if result != 'ok':
             problems.append(f'skill copy {dest} is {result}: ezy skills install --dir {dest}')
     if not copies:
-        print('  none')
+        print_status('none')
     for target in skills_install.TARGETS.values():
         dest = skills_install.expand(target['dir'])
         if skills_install.shutil.which(target['exe']) and dest not in {d for d, _ in copies}:
@@ -89,7 +96,9 @@ def main(args):
 
     print()
     if problems:
-        print(f'{len(problems)} thing(s) to fix:\n  - ' + '\n  - '.join(problems))
+        print_status(f'{len(problems)} thing(s) to fix:', False)
+        for problem in problems:
+            print_status(problem, False)
         return 1
-    print('All good.')
+    print_status('All good.', True)
     return 0

@@ -11,6 +11,10 @@ import shutil
 import subprocess
 import sys
 
+from .agent_process import probe
+from .status_output import print_status as status_line
+
+STATUS_TIMEOUT = 10
 MARKETPLACE = 'cppai'
 SOURCE = 'cppai-vn/agents-plugins'
 PLUGIN = 'ezyplatform'
@@ -57,7 +61,7 @@ AGENTS = {
 NAMES = list(AGENTS)
 
 
-def run(argv):
+def run(argv, *, timeout=300, non_interactive=False):
     """Run an agent command with its resolved executable (a .cmd shim on Windows too).
 
     Returns (exit code, output): stdout on success, so warnings on stderr never
@@ -67,8 +71,11 @@ def run(argv):
     if not exe:
         return 127, f'{argv[0]} not found'
     try:
-        proc = subprocess.run([exe] + argv[1:], capture_output=True, text=True, encoding='utf-8',
-                              errors='replace', timeout=300)
+        if non_interactive:
+            proc = probe([exe] + argv[1:], timeout)
+        else:
+            proc = subprocess.run([exe] + argv[1:], capture_output=True, text=True, encoding='utf-8',
+                                  errors='replace', timeout=timeout)
     except (OSError, subprocess.SubprocessError) as err:
         return 1, str(err)
     out = proc.stdout or ''
@@ -81,12 +88,13 @@ def detected(name):
     return bool(shutil.which(AGENTS[name]['list'][0]))
 
 
-def plugin_installed(name):
+def plugin_installed(name, *, timeout=None):
     """True / False from the agent's plugin list, None when it cannot be told (Cursor, list failed)."""
     agent = AGENTS[name]
     if agent.get('manual') or not detected(name):
         return None
-    code, out = run(agent['list'])
+    code, out = run(agent['list'], timeout=STATUS_TIMEOUT if timeout is None else timeout,
+                    non_interactive=True)
     if code != 0:
         return None
     try:
@@ -132,10 +140,10 @@ def install(name, dry_run=False):
         print(f'  - {agent["label"]}: no plugin CLI. {CURSOR_STEPS}')
         return None
     if plugin_installed(name):
-        print(f'  = {agent["label"]}: {PLUGIN_ID} already installed')
+        status_line(f'{agent["label"]}: {PLUGIN_ID} already installed', True)
         return 'already'
     steps = list(agent['install'])
-    code, out = run(agent['marketplaces'])
+    code, out = run(agent['marketplaces'], timeout=STATUS_TIMEOUT, non_interactive=True)
     if code != 0 or MARKETPLACE not in out:
         steps.insert(0, agent['add_marketplace'])
     for argv in steps:
@@ -144,12 +152,13 @@ def install(name, dry_run=False):
             continue
         code, out = run(argv)
         if code != 0:
-            print(f'  x {agent["label"]}: {show(argv)} failed\n    {out.strip()[-400:]}')
+            status_line(f'{agent["label"]}: {show(argv)} failed', False)
+            print(f'    {out.strip()[-400:]}')
             return None
     if dry_run:
         return None
     ok = plugin_installed(name)
-    print(f'  {"✓" if ok else "!"} {agent["label"]}: {PLUGIN_ID} ' + ('installed' if ok else 'install ran but the plugin list does not show it yet'))
+    status_line(f'{agent["label"]}: {PLUGIN_ID} ' + ('installed' if ok else 'install ran but the plugin list does not show it yet'), bool(ok))
     return 'new' if ok else None
 
 
@@ -161,29 +170,45 @@ def update(name, dry_run=False):
             continue
         code, out = run(argv)
         if code != 0:
-            print(f'  x {agent["label"]}: {show(argv)} failed\n    {out.strip()[-400:]}')
+            status_line(f'{agent["label"]}: {show(argv)} failed', False)
+            print(f'    {out.strip()[-400:]}')
             return False
     if not dry_run:
-        print(f'  ✓ {agent["label"]}: {PLUGIN_ID} updated')
+        status_line(f'{agent["label"]}: {PLUGIN_ID} updated', True)
     return True
 
 
-def status_rows(names=NAMES):
-    """[(name, label, detected, installed)] for display and doctor."""
-    return [(n, AGENTS[n]['label'], detected(n), plugin_installed(n) if detected(n) else None) for n in names]
+def status_rows(names=NAMES, *, progress=False):
+    """Collect status rows, optionally printing each completed result immediately."""
+    rows = []
+    for name in names:
+        label = AGENTS[name]['label']
+        found = detected(name)
+        installed = plugin_installed(name, timeout=STATUS_TIMEOUT) if found else None
+        row = (name, label, found, installed)
+        rows.append(row)
+        if progress:
+            print_status(rows=[row])
+    return rows
 
 
 def print_status(names=NAMES, rows=None):
-    for name, label, found, installed in rows or status_rows(names):
+    if rows is None:
+        status_rows(names, progress=True)
+        return
+    for name, label, found, installed in rows:
+        ok = False
         if not found:
             state = 'not found on this computer'
         elif AGENTS[name].get('manual'):
             state = 'found; check Customize -> Plugins in Cursor'
+            ok = None
         elif installed is None:
-            state = 'found; plugin list could not be read'
+            state = 'found; plugin list could not be read (failed or timed out)'
         else:
             state = f'{PLUGIN_ID} installed' if installed else 'plugin not installed'
-        print(f'  {label:20} {state}')
+            ok = installed
+        status_line(f'{label:20} {state}', ok)
 
 
 def main(args):

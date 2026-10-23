@@ -2,8 +2,8 @@
 """Compare and push EzySupport i18n messages (web or admin) for one language.
 
 Usage:
-    ezy i18n diff <web|admin> [--lang LANG]
-    ezy i18n push <web|admin> [--lang LANG] [--keys k1,k2] [--yes]
+    python3 ezy_messages.py diff <web|admin> [--lang LANG]
+    python3 ezy_messages.py push <web|admin> [--lang LANG] [--keys k1,k2] [--yes]
 
 Local files: <target>/messages/messages.properties (default) and
 messages_<lang>.properties. `push` sends ONLY keys that are new or changed

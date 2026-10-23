@@ -2,10 +2,10 @@
 """Manage EzyPlatform media (the /api/v1/media library) from the command line.
 
 Usage:
-    ezy media status [name ...]           # local api/v1/media files vs server
-    ezy media upload <file> [...] [--yes] # add, or replace when the name exists
-    ezy media public|unpublic <name> --yes
-    ezy media url <name>                  # web URL with a cache-busting ?v=
+    python3 ezy_media.py status [name ...]           # local api/v1/media files vs server
+    python3 ezy_media.py upload <file> [...] [--yes] # add, or replace when the name exists
+    python3 ezy_media.py public|unpublic <name> --yes
+    python3 ezy_media.py url <name>                  # web URL with a cache-busting ?v=
 
 Upload and visibility changes are dry runs unless --yes is given.
 Names must match ^[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)*$ (no spaces, no accents).
@@ -18,6 +18,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'ezy-shared'))
 import ezy_client  # noqa: E402
+from ezy_output import print_status  # noqa: E402
 
 NAME_RE = re.compile(r'^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)*$')
 SKIPPED_CONTENT = (b'{"token":"invalid"}',)
@@ -45,8 +46,12 @@ def cmd_status(args, root, env):
         on_server = exists(name, env)
         missing += not on_server
         visibility = ('public' if is_public(name, env) else 'private') if on_server else '-'
-        print(f"{name:48} {'on server' if on_server else 'MISSING on server':18} {visibility}")
-    print(f'\n{missing} file(s) not on the server' if missing else '\nall listed files exist on the server')
+        print_status(f"{name:48} {'on server' if on_server else 'MISSING on server':18} {visibility}", on_server)
+    print()
+    if names:
+        print_status(f'{missing} file(s) not on the server' if missing else 'all listed files exist on the server', not missing)
+    else:
+        print_status('no local media files to check')
     return 0
 
 
@@ -68,7 +73,8 @@ def cmd_upload(args, root, env):
     for name, data, action in plan:
         path = '/api/v1/media/add?notPublic=false' if action == 'add' else f'/api/v1/media/{urllib.request.quote(name)}/replace-by-name'
         ezy_client.upload_file(path, name, data, env)
-        print(f'  ✓ {action} {name}' + (' (exists now)' if exists(name, env) else ' — NOT found after upload'))
+        verified = exists(name, env)
+        print_status(f'{action} {name}' + (' (exists now)' if verified else ' — NOT found after upload'), verified)
     print('\nreference it as /api/v1/media/<name>?v=<timestamp>, or ezy:mhref / ezy:msrc for CSS and JS')
     return 0
 
@@ -86,7 +92,8 @@ def cmd_visibility(args, root, env):
         print('dry run: re-run with --yes after the human approves')
         return 0
     ezy_client._send('PUT', f'/api/v1/media/{urllib.request.quote(args.name)}/{args.cmd}', env=env)
-    print('  ✓ changed' if is_public(args.name, env) == wanted else '  x state did not change')
+    verified = is_public(args.name, env) == wanted
+    print_status('changed' if verified else 'state did not change', verified)
     return 0
 
 
@@ -123,5 +130,5 @@ if __name__ == '__main__':
     try:
         sys.exit(main())
     except ezy_client.EzyError as err:
-        print(f'error: {err}', file=sys.stderr)
+        print_status(f'error: {err}', False, file=sys.stderr)
         sys.exit(2)

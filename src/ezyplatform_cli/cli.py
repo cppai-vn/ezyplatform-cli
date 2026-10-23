@@ -1,7 +1,7 @@
-"""`ezy`: one command for the ezy-* EzyPlatform skills.
+"""`ezy`: set up EzyPlatform projects and manage coding-agent plugins and skills.
 
-Each command runs the matching skill script bundled in `skills/` with the same
-arguments, so behaviour, dry runs and safety checks are exactly the plugin's.
+Site content operations belong to the installed plugin. Bundled scripts remain
+available for project setup and for copying the full skill set into agents.
 """
 import importlib
 import json
@@ -9,29 +9,33 @@ import os
 import sys
 
 from . import __version__
+from .status_output import print_status
 
 SKILLS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'skills')
 
 NEW = 'ezy-new/scripts/ezy_new.py'
 CLIENT = 'ezy-shared/ezy_client.py'
-SYNC = 'ezy-sync/scripts/ezy_sync.py'
-PUBLISH = 'ezy-publish/scripts/ezy_publish.py'
 
 # command -> (script, fixed leading arguments, program name shown in usage)
 COMMANDS = {
     'check': (NEW, ['check'], 'ezy check'),
     'token': (NEW, ['token-help'], 'ezy token'),
     'whoami': (CLIENT, ['whoami'], 'ezy whoami'),
-    'get': (CLIENT, ['get'], 'ezy get'),
-    'sync': (SYNC, [], 'ezy sync'),
-    'status': (SYNC, ['status'], 'ezy sync'),
-    'pull': (SYNC, ['pull'], 'ezy sync'),
-    'pull-all': (SYNC, ['pull-all'], 'ezy sync'),
-    'publish': (PUBLISH, [], 'ezy publish'),
-    'media': ('ezy-media/scripts/ezy_media.py', [], 'ezy media'),
-    'i18n': ('ezy-i18n/scripts/ezy_messages.py', [], 'ezy i18n'),
-    'verify': ('ezy-verify/scripts/ezy_verify.py', [], 'ezy verify'),
-    'mail': ('ezy-mail/scripts/ezy_mail.py', [], 'ezy mail'),
+}
+
+# Give users of previous versions a useful handoff without executing site work.
+PLUGIN_COMMANDS = {
+    'get': 'ezy-guide',
+    'content': 'ezy-guide',
+    'sync': 'ezy-sync',
+    'status': 'ezy-sync',
+    'pull': 'ezy-sync',
+    'pull-all': 'ezy-sync',
+    'publish': 'ezy-publish',
+    'media': 'ezy-media',
+    'i18n': 'ezy-i18n',
+    'verify': 'ezy-verify',
+    'mail': 'ezy-mail',
 }
 
 # command -> (module, function) for commands that manage ezy and the agents
@@ -46,7 +50,7 @@ TOOLS = {
     'uninstall': ('self_update', 'uninstall'),
 }
 
-HELP = """ezy — EzyPlatform / EzyArticle site tools (ezyplatform skills {skills})
+HELP = """ezy — project setup and agent management (ezyplatform skills {skills})
 
 Usage: ezy <command> [args]      ezy <command> --help for details
 
@@ -62,29 +66,14 @@ Project
   token [admin_url]              how to get the admin access token
   check [dir]                    validate environment.json and the connection
   whoami                         roles of the token owner
-  get <api-path>                 GET an admin API path (redacted JSON)
-
-Content (server -> local)
-  sync status|pull|pull-all|discover-pages
-  status [target ...]            shortcut for: sync status
-  pull <target> [--lang L] [--write]
-  pull-all [--langs en,vi] [--write]
-
-Publish (local -> server, dry run unless --yes)
-  publish plan|apply|restore|remove
-  media status|upload|public|unpublic|url
-  i18n diff|push <web|admin>
-  mail status|templates|pull|push|contact-settings|test-contact
-
-Check
-  verify preview <slug> | verify live [path] [--expect TEXT]
 
 Tool
   update                         latest ezy release, then refresh plugins and skill copies
   uninstall [--yes]              remove ezy (site projects are kept)
   --version
 
-Targets: page:<slug> | fragment:<page_name>/<fragment_name>
+For content, sync, publishing, media, translations, mail and previews, use the
+ezyplatform plugin in your coding agent. Run ezy init to set up the agent.
 Docs: https://github.com/cppai-vn/ezyplatform-cli
 """
 
@@ -118,7 +107,7 @@ def exit_code(exc):
     """Exit status of a SystemExit; a message is printed and counts as 1."""
     if exc.code is None or isinstance(exc.code, int):
         return exc.code or 0
-    print(exc.code, file=sys.stderr)
+    print_status(exc.code, False, file=sys.stderr)
     return 1
 
 
@@ -145,6 +134,9 @@ def main(argv=None):
     if argv[0] == 'skills-path':
         print(SKILLS)
         return 0
+    if argv[0] == 'whoami' and argv[1:] in (['-h'], ['--help']):
+        print('usage: ezy whoami\n\nShow the configured environment, admin URL and token owner roles (JSON).')
+        return 0
     if argv[0] in TOOLS:
         module, func = TOOLS[argv[0]]
         try:
@@ -154,6 +146,11 @@ def main(argv=None):
         except KeyboardInterrupt:
             return 130
     if argv[0] not in COMMANDS:
+        if argv[0] in PLUGIN_COMMANDS:
+            print_status(f"ezy: '{argv[0]}' is handled by the ezyplatform plugin. "
+                         f"Use the {PLUGIN_COMMANDS[argv[0]]} skill in your coding agent; "
+                         "run 'ezy init' to set it up.", False, file=sys.stderr)
+            return 2
         print(f"ezy: unknown command '{argv[0]}'. Run 'ezy --help'.", file=sys.stderr)
         return 2
     script, fixed, prog = COMMANDS[argv[0]]
@@ -163,8 +160,8 @@ def main(argv=None):
         return 130
     except OSError as err:
         # URLError and socket errors: the scripts only catch HTTP errors from the server
-        print(f"ezy: cannot reach the admin server: {getattr(err, 'reason', err)}\n"
-              "     check admin_url in environment.json, then run 'ezy check'", file=sys.stderr)
+        print_status(f"ezy: cannot reach the admin server: {getattr(err, 'reason', err)}", False, file=sys.stderr)
+        print("  check admin_url in environment.json, then run 'ezy check'", file=sys.stderr)
         return 2
 
 

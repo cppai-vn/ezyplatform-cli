@@ -14,6 +14,7 @@ import shutil
 import sys
 
 from . import __version__, agents
+from .status_output import print_status
 
 SKILLS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'skills')
 MANIFEST = os.path.join('ezy-shared', '.ezy-install.json')
@@ -145,19 +146,19 @@ def verify(dest):
 def install_to(dest, force=False):
     """Copy the bundled skills into `dest`; replaces only ezy's own earlier copy (or, with --force, same-named folders)."""
     if dest == expand(SKILLS):
-        print(f'  x {dest} is the skills bundled with ezy itself')
+        print_status(f'{dest} is the skills bundled with ezy itself', False)
         return False
     readers = plugin_readers(dest)
     if readers and not force:
-        print(f'  x {dest}: also read by {", ".join(readers)}, which already has the plugin; '
-              'the skills would appear twice there (--force to copy anyway)')
+        print_status(f'{dest}: also read by {", ".join(readers)}, which already has the plugin; '
+                     'the skills would appear twice there (--force to copy anyway)', False)
         return False
     bundled = skill_names(SKILLS)
     ours = installed_names(dest)
     foreign = [n for n in bundled if os.path.lexists(os.path.join(dest, n)) and n not in ours]
     if foreign and not force:
-        print(f'  x {dest}: has skills with the same names that ezy did not install ({", ".join(foreign)}); '
-              '--force to replace them')
+        print_status(f'{dest}: has skills with the same names that ezy did not install ({", ".join(foreign)}); '
+                     '--force to replace them', False)
         return False
     # copy next to the destination first, so a failed copy leaves the old skills in place
     staging = os.path.join(dest, '.ezy-staging')
@@ -169,7 +170,7 @@ def install_to(dest, force=False):
             shutil.copytree(os.path.join(SKILLS, name), os.path.join(staging, name), ignore=ignore)
     except OSError as err:
         remove_entry(staging)
-        print(f'  x {dest}: copy failed ({err}); the existing skills are unchanged')
+        print_status(f'{dest}: copy failed ({err}); the existing skills are unchanged', False)
         return False
     for name in sorted(set(ours) | set(foreign)):
         remove_entry(os.path.join(dest, name))
@@ -183,19 +184,19 @@ def install_to(dest, force=False):
         json.dump(manifest, fh, indent=1)
     record_copy(dest, True)
     result = verify(dest)
-    print(f"  {'✓' if result == 'ok' else 'x'} {dest}: ezyplatform skills {info.get('version')} ({result})")
+    print_status(f"{dest}: ezyplatform skills {info.get('version')} ({result})", result == 'ok')
     return result == 'ok'
 
 
 def remove_from(dest):
     names = installed_names(dest)
     if not names:
-        print(f'  - {dest}: no skills installed by ezy')
+        print_status(f'{dest}: no skills installed by ezy')
         return False
     for name in names:
         remove_entry(os.path.join(dest, name))
     record_copy(dest, False)
-    print(f'  ✓ {dest}: ezy-* skills removed')
+    print_status(f'{dest}: ezy-* skills removed', True)
     return True
 
 
@@ -240,10 +241,10 @@ def main(args):
     if opts.action in ('status', 'verify'):
         found = [(d, verify(d)) for d in dests] if dests else copies()
         if not found:
-            print('no ezy skill copies on this computer (agents with plugins do not need them)')
+            print_status('no ezy skill copies on this computer (agents with plugins do not need them)')
             return 0
         for dest, result in found:
-            print(f'  {dest:50} {result}')
+            print_status(f'{dest:50} {result}', result == 'ok')
         return 0 if all(r == 'ok' for _, r in found) else 1
     if opts.action == 'remove':
         targets = dests or [d for d, _ in copies() if read_manifest(d)]

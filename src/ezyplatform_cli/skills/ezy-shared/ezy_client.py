@@ -8,7 +8,7 @@
   Python-urllib signature with error 1010.
 
 CLI (read-only helper):
-    ezy get <api-path>        # redacted JSON to stdout
+    python3 ezy_client.py get <api-path>        # redacted JSON to stdout
     ezy whoami                # roles of the token owner
 """
 import json
@@ -71,7 +71,8 @@ def _send(method, path, data=None, content_type=None, env=None, accept='applicat
     if content_type:
         req.add_header('Content-Type', content_type)
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        # Read-only checks have a short budget; writes and uploads retain theirs.
+        with urllib.request.urlopen(req, timeout=10 if method == 'GET' else 60) as resp:
             return resp.status, resp.read()
     except urllib.error.HTTPError as err:
         raise EzyError(err.code, err.read().decode(errors='replace')) from None

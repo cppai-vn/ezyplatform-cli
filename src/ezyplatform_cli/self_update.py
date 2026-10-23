@@ -14,6 +14,7 @@ import tempfile
 import urllib.request
 
 from . import __version__
+from .status_output import print_status
 
 REPO = 'https://github.com/cppai-vn/ezyplatform-cli'
 API = 'https://api.github.com/repos/cppai-vn/ezyplatform-cli'
@@ -22,7 +23,7 @@ INSTALL_HINT = ('  macOS / Linux: curl -LsSf https://raw.githubusercontent.com/c
                 '  Windows:       powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/cppai-vn/ezyplatform-cli/main/install.ps1 | iex"')
 
 
-def latest_version():
+def latest_version(timeout=10):
     """Version of the latest release, e.g. '0.1.1'.
 
     The API answer is current; when it is rate limited, fall back to the
@@ -33,11 +34,11 @@ def latest_version():
     headers = {'User-Agent': 'ezy/' + __version__}
     try:
         req = urllib.request.Request(API + '/releases/latest', headers=dict(headers, Accept='application/vnd.github+json'))
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             tag = json.load(resp).get('tag_name') or ''
     except (OSError, ValueError):
         req = urllib.request.Request(REPO + '/releases/latest', method='HEAD', headers=dict(headers, Accept='*/*'))
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             tag = resp.geturl().rstrip('/').rsplit('/tag/', 1)[-1]
     if not tag.startswith('v'):
         raise OSError('no release found on GitHub')
@@ -114,7 +115,7 @@ def refresh():
     print('Plugins')
     states = {n: agents.plugin_installed(n) for n in agents.NAMES if agents.detected(n) and not agents.AGENTS[n].get('manual')}
     for name in [n for n, s in states.items() if s is None]:
-        print(f"  ? {agents.AGENTS[name]['label']}: plugin list could not be read, skipped")
+        print_status(f"{agents.AGENTS[name]['label']}: plugin list could not be read, skipped", False)
     names = [n for n, s in states.items() if s]
     ok = all([agents.update(n) for n in names])
     if not names:
@@ -123,9 +124,9 @@ def refresh():
     copies = [(d, r) for d, r in skills_install.copies() if skills_install.read_manifest(d)]
     for dest, result in copies:
         if result == 'ok':
-            print(f'  = {dest}: up to date')
+            print_status(f'{dest}: up to date', True)
         elif result.startswith('modified'):
-            print(f'  ! {dest}: {result}, kept; replace with: ezy skills install --dir {dest} --force')
+            print_status(f'{dest}: {result}, kept; replace with: ezy skills install --dir {dest} --force', False)
             ok = False
         else:
             ok &= skills_install.install_to(dest, force=True)
@@ -145,10 +146,10 @@ def update(args):
     try:
         latest = latest_version()
     except OSError as err:
-        print(f"ezy: cannot check for updates: {getattr(err, 'reason', err)}", file=sys.stderr)
+        print_status(f"ezy: cannot check for updates: {getattr(err, 'reason', err)}", False, file=sys.stderr)
         return 2
     if parse(latest) <= parse(__version__):
-        print(f'ezy {__version__} is the latest version')
+        print_status(f'ezy {__version__} is the latest version', True)
         return 0 if cli_only else refresh()
     uv = find_uv()
     if not uv:
