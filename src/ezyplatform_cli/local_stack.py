@@ -22,7 +22,7 @@ import time
 import urllib.error
 import urllib.request
 
-IMAGE = os.environ.get('EZY_LOCAL_IMAGE', 'vutadev/ezyplatform-app:1.5.4')
+IMAGE = os.environ.get('EZY_LOCAL_IMAGE', 'cppai/ezyplatform-app:1.5.4')
 COMPOSE_FILE = 'docker-compose.yml'
 ENV_FILE = '.env'
 START_TIMEOUT = 600  # first run pulls ~1 GB of images and runs the amd64 image emulated on Apple silicon
