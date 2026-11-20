@@ -1,0 +1,827 @@
+<!-- Level 3: anything you want, the admin as a desktop -->
+<script id="customAdminLevel3Script">
+(function () {
+    var embedded = false;
+    try {
+        embedded = window.self !== window.top
+            && window.top.document.body.classList.contains('custom-desktop');
+    } catch (e) {
+        embedded = false;
+    }
+    if (embedded) {
+        document.body.classList.add('custom-desktop-embedded');
+        return;
+    }
+    var sidebarMenu = document.querySelector('.main-sidebar .nav-sidebar');
+    var contentWrapper = document.querySelector('.content-wrapper');
+    if (window.self !== window.top || !sidebarMenu || !contentWrapper) {
+        return;
+    }
+
+    var texts = {
+        en: {
+            searchMenus: 'Search menus...',
+            noResults: 'No matching menu',
+            general: 'General',
+            exitDesktop: 'Exit desktop mode',
+            desktopMode: 'Desktop mode',
+            customization: 'Customize',
+            showDesktop: 'Show desktop',
+            minimize: 'Minimize',
+            maximize: 'Maximize',
+            close: 'Close',
+            start: 'Start'
+        },
+        vi: {
+            searchMenus: 'Tìm menu...',
+            noResults: 'Không có menu phù hợp',
+            general: 'Chung',
+            exitDesktop: 'Thoát chế độ desktop',
+            desktopMode: 'Chế độ desktop',
+            customization: 'Tuỳ biến',
+            showDesktop: 'Hiện màn hình nền',
+            minimize: 'Thu nhỏ',
+            maximize: 'Phóng to',
+            close: 'Đóng',
+            start: 'Bắt đầu'
+        }
+    };
+    var htmlLang = document.documentElement.lang || 'en';
+    var t = texts[htmlLang.toLowerCase().split('-')[0]] || texts.en;
+    var isRtl = getComputedStyle(document.documentElement).direction === 'rtl';
+    var isMobile = function () {
+        return window.matchMedia('(max-width: 767.98px)').matches;
+    };
+    var coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+    var DISABLED_KEY = 'customDesktopDisabled';
+    var STATE_KEY = 'customDesktopState';
+    var TILE_COLORS = [
+        'linear-gradient(135deg, #6366f1, #8b5cf6)',
+        'linear-gradient(135deg, #0ea5e9, #2563eb)',
+        'linear-gradient(135deg, #10b981, #059669)',
+        'linear-gradient(135deg, #f59e0b, #ea580c)',
+        'linear-gradient(135deg, #ec4899, #db2777)',
+        'linear-gradient(135deg, #14b8a6, #0891b2)',
+        'linear-gradient(135deg, #f43f5e, #e11d48)',
+        'linear-gradient(135deg, #64748b, #334155)'
+    ];
+
+    function storageGet(storage, key) {
+        try {
+            return storage.getItem(key);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function storageSet(storage, key, value) {
+        try {
+            if (value === null) {
+                storage.removeItem(key);
+            } else {
+                storage.setItem(key, value);
+            }
+        } catch (e) {
+        }
+    }
+
+    function escapeHtml(value) {
+        return ezyadmin.escapeHtml(String(value));
+    }
+
+    function normalize(value) {
+        return String(value || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '')
+            .replace(/đ/g, 'd');
+    }
+
+    function tileColor(title) {
+        var hash = 0;
+        for (var i = 0; i < title.length; ++i) {
+            hash = (hash * 31 + title.charCodeAt(i)) | 0;
+        }
+        return TILE_COLORS[Math.abs(hash) % TILE_COLORS.length];
+    }
+
+    function tileHtml(item) {
+        return '<span class="cd-icon-tile' + (item.folder ? ' cd-folder-tile' : '') + '"'
+            + ' style="background: ' + tileColor(item.title) + '">'
+            + '<i class="' + escapeHtml(item.icon) + '"></i></span>';
+    }
+
+    if (storageGet(localStorage, DISABLED_KEY) === '1') {
+        var enterButton = document.createElement('button');
+        enterButton.type = 'button';
+        enterButton.className = 'cd-enter-desktop';
+        enterButton.innerHTML = '<i class="fas fa-desktop"></i>' + escapeHtml(t.desktopMode);
+        enterButton.addEventListener('click', function () {
+            storageSet(localStorage, DISABLED_KEY, null);
+            window.location.reload();
+        });
+        document.body.appendChild(enterButton);
+        return;
+    }
+    document.body.classList.add('custom-desktop');
+
+    function textOf(element) {
+        if (!element) {
+            return '';
+        }
+        var clone = element.cloneNode(true);
+        clone.querySelectorAll('.badge, .right, i, button').forEach(function (child) {
+            child.remove();
+        });
+        return clone.textContent.replace(/\s+/g, ' ').trim();
+    }
+
+    function iconOf(link, defaultIcon) {
+        var icon = link && link.querySelector('.nav-icon');
+        var className = icon ? icon.className.replace('nav-icon', '').trim() : '';
+        return className || defaultIcon;
+    }
+
+    function isNavigableHref(href) {
+        return href && href !== '#' && href.indexOf('javascript:') !== 0;
+    }
+
+    function pathOf(url) {
+        var parsed = new URL(url, window.location.origin);
+        return (parsed.pathname.replace(/\/+$/, '') || '/') + parsed.search;
+    }
+
+    var desktopItems = [];
+    var leafItems = [];
+    sidebarMenu.querySelectorAll(':scope > .nav-item').forEach(function (menuItem) {
+        var link = menuItem.querySelector(':scope > a.nav-link');
+        if (!link) {
+            return;
+        }
+        var title = textOf(link.querySelector('p'));
+        var children = [];
+        menuItem.querySelectorAll(':scope > .nav-treeview > .nav-item > a.nav-link').forEach(function (childLink) {
+            var childHref = childLink.getAttribute('href');
+            if (isNavigableHref(childHref)) {
+                children.push({
+                    title: textOf(childLink.querySelector('p')),
+                    href: childHref,
+                    icon: iconOf(childLink, 'far fa-circle'),
+                    parentTitle: title
+                });
+            }
+        });
+        var href = link.getAttribute('href');
+        if (children.length) {
+            desktopItems.push({
+                title: title,
+                icon: iconOf(link, 'fas fa-folder'),
+                folder: true,
+                children: children
+            });
+            leafItems = leafItems.concat(children);
+        } else if (isNavigableHref(href)) {
+            var item = {
+                title: title,
+                href: href,
+                icon: iconOf(link, 'fas fa-circle'),
+                parentTitle: ''
+            };
+            desktopItems.push(item);
+            leafItems.push(item);
+        }
+    });
+
+    var activeLink = sidebarMenu.querySelector('a.nav-link.active[href]');
+    var pageHeading = document.querySelector('.content-header h1');
+    var mainTitle = (pageHeading && pageHeading.textContent.trim()) || document.title;
+    var mainIcon = iconOf(activeLink, 'fas fa-window-maximize');
+    var currentPath = pathOf(window.location.href);
+    var logo = document.getElementById('ezyplatformTopLogo');
+    var nameElement = document.querySelector('.user-panel .info a');
+    var adminName = nameElement ? nameElement.textContent.trim() : '';
+    var avatarElement = document.getElementById('mainAdminAvatar');
+    var avatarUrl = avatarElement && !avatarElement.classList.contains('d-none')
+        ? avatarElement.getAttribute('src')
+        : '';
+
+    function avatarHtml() {
+        if (avatarUrl) {
+            return '<img class="cd-avatar" src="' + escapeHtml(avatarUrl) + '" alt="">';
+        }
+        return '<span class="cd-avatar">' + escapeHtml((adminName || 'A').charAt(0).toUpperCase()) + '</span>';
+    }
+
+    var iconContainer = document.createElement('div');
+    iconContainer.className = 'cd-icons';
+    document.body.appendChild(iconContainer);
+
+    var taskbar = document.createElement('div');
+    taskbar.className = 'cd-taskbar';
+    taskbar.innerHTML = '<button type="button" class="cd-start-button"></button>'
+        + '<div class="cd-tasks"></div>'
+        + '<div class="cd-tray">'
+        + '<button type="button" class="cd-tray-button cd-tray-user"></button>'
+        + '<div class="cd-tray-button cd-clock"><span></span><small></small></div>'
+        + '<button type="button" class="cd-show-desktop"></button>'
+        + '</div>';
+    document.body.appendChild(taskbar);
+    var startButton = taskbar.querySelector('.cd-start-button');
+    startButton.title = t.start;
+    startButton.innerHTML = logo
+        ? '<img src="' + escapeHtml(logo.getAttribute('src')) + '" alt="">'
+        : '<i class="fas fa-th-large"></i>';
+    var taskContainer = taskbar.querySelector('.cd-tasks');
+    var tray = taskbar.querySelector('.cd-tray');
+    var toolbarItems = document.querySelectorAll('#rightToolbarItems > .right-toolbar-item');
+    if (toolbarItems.length) {
+        var trayTools = document.createElement('div');
+        trayTools.className = 'cd-tray-tools';
+        toolbarItems.forEach(function (item) {
+            trayTools.appendChild(item);
+        });
+        tray.insertBefore(trayTools, tray.firstChild);
+    }
+    var trayUser = taskbar.querySelector('.cd-tray-user');
+    trayUser.innerHTML = avatarHtml();
+    trayUser.title = adminName;
+    taskbar.querySelector('.cd-show-desktop').title = t.showDesktop;
+
+    var clock = taskbar.querySelector('.cd-clock');
+    function updateClock() {
+        var now = new Date();
+        clock.querySelector('span').textContent = now.toLocaleTimeString(htmlLang, {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        clock.querySelector('small').textContent = now.toLocaleDateString(htmlLang, {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    }
+    updateClock();
+    setInterval(updateClock, 15000);
+
+    var windows = [];
+    var zIndexTop = 10;
+    var cascadeIndex = 0;
+    var restoring = false;
+
+    function viewportHeight() {
+        return window.innerHeight - taskbar.offsetHeight;
+    }
+
+    function defaultGeometry() {
+        var width = Math.min(1180, window.innerWidth - 160);
+        var height = Math.min(760, viewportHeight() - 60);
+        var offset = 32 * cascadeIndex;
+        cascadeIndex = (cascadeIndex + 1) % 6;
+        var left = 128 + offset;
+        if (isRtl) {
+            left = window.innerWidth - width - 128 - offset;
+        }
+        return {
+            left: Math.max(0, left),
+            top: 20 + offset,
+            width: Math.max(340, width),
+            height: Math.max(220, height)
+        };
+    }
+
+    function saveState() {
+        if (restoring) {
+            return;
+        }
+        var state = { windows: [] };
+        windows.forEach(function (win) {
+            var data = {
+                kind: win.kind,
+                url: win.url,
+                title: win.title,
+                icon: win.icon,
+                geometry: win.geometry,
+                maximized: win.element.classList.contains('cd-maximized'),
+                minimized: win.element.classList.contains('cd-minimized'),
+                closed: win.element.classList.contains('cd-closed'),
+                zIndex: Number(win.element.style.zIndex) || 0
+            };
+            if (win.kind === 'main') {
+                state.main = data;
+            } else {
+                state.windows.push(data);
+            }
+        });
+        storageSet(sessionStorage, STATE_KEY, JSON.stringify(state));
+    }
+
+    function loadState() {
+        try {
+            return JSON.parse(storageGet(sessionStorage, STATE_KEY)) || {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function topWindow() {
+        var result = null;
+        windows.forEach(function (win) {
+            if (win.element.classList.contains('cd-minimized') || win.element.classList.contains('cd-closed')) {
+                return;
+            }
+            if (!result || Number(win.element.style.zIndex) > Number(result.element.style.zIndex)) {
+                result = win;
+            }
+        });
+        return result;
+    }
+
+    function refreshFocus() {
+        var focused = topWindow();
+        windows.forEach(function (win) {
+            win.element.classList.toggle('cd-focused', win === focused);
+            win.task.classList.toggle('active', win === focused);
+            win.task.classList.toggle('d-none', win.element.classList.contains('cd-closed'));
+        });
+    }
+
+    function focusWindow(win) {
+        win.element.classList.remove('cd-minimized', 'cd-closed');
+        if (zIndexTop > 900) {
+            windows
+                .slice()
+                .sort(function (a, b) {
+                    return Number(a.element.style.zIndex) - Number(b.element.style.zIndex);
+                })
+                .forEach(function (item, index) {
+                    item.element.style.zIndex = 10 + index;
+                });
+            zIndexTop = 10 + windows.length;
+        }
+        win.element.style.zIndex = ++zIndexTop;
+        refreshFocus();
+        saveState();
+    }
+
+    function minimizeWindow(win) {
+        win.element.classList.add('cd-minimized');
+        refreshFocus();
+        saveState();
+    }
+
+    function toggleMaximize(win) {
+        win.element.classList.toggle('cd-maximized');
+        focusWindow(win);
+    }
+
+    function closeWindow(win) {
+        if (win.kind === 'main') {
+            win.element.classList.add('cd-closed');
+        } else {
+            win.element.remove();
+            win.task.remove();
+            windows.splice(windows.indexOf(win), 1);
+        }
+        refreshFocus();
+        saveState();
+    }
+
+    function setWindowTitle(win, title, icon) {
+        win.title = title || win.title;
+        if (icon) {
+            win.icon = icon;
+            win.element.querySelector('.cd-window-titlebar > i').className = icon;
+            win.task.querySelector('i').className = icon;
+        }
+        win.element.querySelector('.cd-window-title').textContent = win.title;
+        win.task.querySelector('span').textContent = win.title;
+        win.task.title = win.title;
+    }
+
+    function applyGeometry(win) {
+        var geometry = win.geometry;
+        win.element.style.left = geometry.left + 'px';
+        win.element.style.top = geometry.top + 'px';
+        win.element.style.width = geometry.width + 'px';
+        win.element.style.height = geometry.height + 'px';
+    }
+
+    function enableDragging(win) {
+        var titlebar = win.element.querySelector('.cd-window-titlebar');
+        titlebar.addEventListener('pointerdown', function (event) {
+            if (event.button !== 0
+                || event.target.closest('button')
+                || win.element.classList.contains('cd-maximized')
+                || isMobile()
+            ) {
+                return;
+            }
+            var startX = event.clientX;
+            var startY = event.clientY;
+            var startLeft = win.geometry.left;
+            var startTop = win.geometry.top;
+            document.body.classList.add('cd-dragging');
+            function onMove(moveEvent) {
+                var width = win.element.offsetWidth;
+                var left = startLeft + moveEvent.clientX - startX;
+                var top = startTop + moveEvent.clientY - startY;
+                left = Math.min(Math.max(left, 80 - width), window.innerWidth - 80);
+                top = Math.min(Math.max(top, 0), viewportHeight() - 40);
+                win.geometry.left = left;
+                win.geometry.top = top;
+                win.element.style.left = left + 'px';
+                win.element.style.top = top + 'px';
+            }
+            function onUp() {
+                document.body.classList.remove('cd-dragging');
+                document.removeEventListener('pointermove', onMove);
+                document.removeEventListener('pointerup', onUp);
+                saveState();
+            }
+            document.addEventListener('pointermove', onMove);
+            document.addEventListener('pointerup', onUp);
+        });
+        titlebar.addEventListener('dblclick', function (event) {
+            if (!event.target.closest('button') && !isMobile()) {
+                toggleMaximize(win);
+            }
+        });
+    }
+
+    function watchResize(win) {
+        if (!window.ResizeObserver) {
+            return;
+        }
+        var timer = null;
+        new ResizeObserver(function () {
+            if (win.element.classList.contains('cd-maximized')
+                || win.element.classList.contains('cd-minimized')
+                || win.element.classList.contains('cd-closed')
+                || isMobile()
+            ) {
+                return;
+            }
+            clearTimeout(timer);
+            timer = setTimeout(function () {
+                win.geometry.width = win.element.offsetWidth;
+                win.geometry.height = win.element.offsetHeight;
+                saveState();
+            }, 300);
+        }).observe(win.element);
+    }
+
+    function createWindow(options) {
+        var element = document.createElement('section');
+        element.className = 'cd-window';
+        element.innerHTML = '<header class="cd-window-titlebar">'
+            + '<i></i><span class="cd-window-title"></span>'
+            + '<div class="cd-window-actions">'
+            + '<button type="button" class="cd-window-minimize"><i class="fas fa-minus"></i></button>'
+            + '<button type="button" class="cd-window-maximize"><i class="far fa-square"></i></button>'
+            + '<button type="button" class="cd-window-close"><i class="fas fa-times"></i></button>'
+            + '</div>'
+            + '</header>'
+            + '<div class="cd-window-body"></div>';
+        element.querySelector('.cd-window-minimize').title = t.minimize;
+        element.querySelector('.cd-window-maximize').title = t.maximize;
+        element.querySelector('.cd-window-close').title = t.close;
+        var task = document.createElement('button');
+        task.type = 'button';
+        task.className = 'cd-task';
+        task.innerHTML = '<i></i><span></span>';
+        var win = {
+            kind: options.kind,
+            url: options.url,
+            title: options.title,
+            icon: options.icon,
+            element: element,
+            task: task,
+            geometry: options.geometry || defaultGeometry()
+        };
+        var body = element.querySelector('.cd-window-body');
+        if (options.kind === 'main') {
+            body.appendChild(contentWrapper);
+        } else if (options.kind === 'folder') {
+            var folder = document.createElement('div');
+            folder.className = 'cd-folder';
+            var folderItem = desktopItems.filter(function (item) {
+                return item.folder && item.title === options.title;
+            })[0];
+            (folderItem ? folderItem.children : []).forEach(function (child) {
+                folder.appendChild(createIcon(child));
+            });
+            body.appendChild(folder);
+        } else {
+            var iframe = document.createElement('iframe');
+            iframe.src = options.url;
+            iframe.title = options.title;
+            iframe.addEventListener('load', function () {
+                try {
+                    var frameWindow = iframe.contentWindow;
+                    var frameDocument = iframe.contentDocument;
+                    var heading = frameDocument.querySelector('.content-header h1');
+                    var activeFrameLink = frameDocument.querySelector('.nav-sidebar a.nav-link.active[href]');
+                    win.url = frameWindow.location.pathname + frameWindow.location.search;
+                    setWindowTitle(
+                        win,
+                        (heading && heading.textContent.trim()) || frameDocument.title,
+                        activeFrameLink ? iconOf(activeFrameLink, '') : ''
+                    );
+                    frameDocument.addEventListener('pointerdown', function () {
+                        if (topWindow() !== win) {
+                            focusWindow(win);
+                        }
+                        closeStartMenu();
+                    });
+                    saveState();
+                } catch (e) {
+                }
+            });
+            body.appendChild(iframe);
+        }
+        element.querySelector('.cd-window-minimize').addEventListener('click', function () {
+            minimizeWindow(win);
+        });
+        element.querySelector('.cd-window-maximize').addEventListener('click', function () {
+            toggleMaximize(win);
+        });
+        element.querySelector('.cd-window-close').addEventListener('click', function () {
+            closeWindow(win);
+        });
+        element.addEventListener('pointerdown', function () {
+            if (topWindow() !== win) {
+                focusWindow(win);
+            }
+        });
+        task.addEventListener('click', function () {
+            if (element.classList.contains('cd-minimized') || topWindow() !== win) {
+                focusWindow(win);
+            } else {
+                minimizeWindow(win);
+            }
+        });
+        document.body.appendChild(element);
+        taskContainer.appendChild(task);
+        setWindowTitle(win, options.title, options.icon);
+        applyGeometry(win);
+        enableDragging(win);
+        watchResize(win);
+        if (options.maximized) {
+            element.classList.add('cd-maximized');
+        }
+        if (options.closed) {
+            element.classList.add('cd-closed');
+        } else if (options.minimized) {
+            element.classList.add('cd-minimized');
+        }
+        element.style.zIndex = options.zIndex || ++zIndexTop;
+        zIndexTop = Math.max(zIndexTop, Number(element.style.zIndex));
+        windows.push(win);
+        return win;
+    }
+
+    function openItem(item) {
+        closeStartMenu();
+        if (item.folder) {
+            var existedFolder = windows.filter(function (win) {
+                return win.kind === 'folder' && win.title === item.title;
+            })[0];
+            focusWindow(existedFolder || createWindow({
+                kind: 'folder',
+                title: item.title,
+                icon: item.icon,
+                geometry: Object.assign(defaultGeometry(), { width: 560, height: 380 })
+            }));
+            return;
+        }
+        var path = pathOf(item.href);
+        var mainWindow = windows.filter(function (win) {
+            return win.kind === 'main';
+        })[0];
+        if (mainWindow && path === currentPath) {
+            focusWindow(mainWindow);
+            return;
+        }
+        var existed = windows.filter(function (win) {
+            return win.kind === 'page' && pathOf(win.url) === path;
+        })[0];
+        focusWindow(existed || createWindow({
+            kind: 'page',
+            url: item.href,
+            title: item.title,
+            icon: item.icon
+        }));
+    }
+
+    function createIcon(item) {
+        var icon = document.createElement('button');
+        icon.type = 'button';
+        icon.className = 'cd-icon';
+        icon.title = item.title;
+        icon.innerHTML = tileHtml(item)
+            + '<span class="cd-icon-label">' + escapeHtml(item.title) + '</span>';
+        icon.addEventListener('click', function () {
+            document.querySelectorAll('.cd-icon.selected').forEach(function (selected) {
+                selected.classList.remove('selected');
+            });
+            icon.classList.add('selected');
+            if (coarsePointer) {
+                openItem(item);
+            }
+        });
+        icon.addEventListener('dblclick', function () {
+            openItem(item);
+        });
+        icon.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                openItem(item);
+            }
+        });
+        return icon;
+    }
+
+    desktopItems.forEach(function (item) {
+        iconContainer.appendChild(createIcon(item));
+    });
+
+    var startMenu = document.createElement('div');
+    startMenu.className = 'cd-start-menu';
+    startMenu.innerHTML = '<button type="button" class="cd-start-user"></button>'
+        + '<div class="cd-start-search"><i class="fas fa-search"></i>'
+        + '<input type="text" autocomplete="off" spellcheck="false"></div>'
+        + '<ul class="cd-start-list"></ul>'
+        + '<div class="cd-start-footer">'
+        + '<button type="button" class="cd-start-customization"><i class="fas fa-palette"></i></button>'
+        + '<button type="button" class="cd-start-exit"><i class="fas fa-sign-out-alt"></i></button>'
+        + '</div>';
+    document.body.appendChild(startMenu);
+    var startUser = startMenu.querySelector('.cd-start-user');
+    startUser.innerHTML = avatarHtml() + '<span>' + escapeHtml(adminName) + '</span>';
+    var startInput = startMenu.querySelector('input');
+    startInput.placeholder = t.searchMenus;
+    var startList = startMenu.querySelector('.cd-start-list');
+    startMenu.querySelector('.cd-start-customization')
+        .insertAdjacentHTML('beforeend', escapeHtml(t.customization));
+    startMenu.querySelector('.cd-start-exit')
+        .insertAdjacentHTML('beforeend', escapeHtml(t.exitDesktop));
+    var startResults = [];
+    var startSelectedIndex = 0;
+
+    function renderStartMenu() {
+        var words = normalize(startInput.value).split(/\s+/).filter(Boolean);
+        startResults = leafItems.filter(function (item) {
+            var text = normalize(item.title + ' ' + item.parentTitle + ' ' + item.href);
+            return words.every(function (word) {
+                return text.indexOf(word) >= 0;
+            });
+        });
+        if (startSelectedIndex >= startResults.length) {
+            startSelectedIndex = Math.max(0, startResults.length - 1);
+        }
+        if (!startResults.length) {
+            startList.innerHTML = '<li class="cd-start-empty">' + escapeHtml(t.noResults) + '</li>';
+            return;
+        }
+        var html = '';
+        var lastGroup = null;
+        startResults.forEach(function (item, index) {
+            var group = item.parentTitle || t.general;
+            if (!words.length && group !== lastGroup) {
+                html += '<li class="cd-start-group">' + escapeHtml(group) + '</li>';
+                lastGroup = group;
+            }
+            html += '<li class="cd-start-item' + (index === startSelectedIndex ? ' selected' : '') + '"'
+                + ' data-index="' + index + '">'
+                + tileHtml(item)
+                + '<span class="cd-start-item-title">' + escapeHtml(item.title) + '</span>'
+                + (words.length && item.parentTitle
+                    ? '<span class="cd-start-item-parent">' + escapeHtml(item.parentTitle) + '</span>'
+                    : '')
+                + '</li>';
+        });
+        startList.innerHTML = html;
+        var selected = startList.querySelector('.selected');
+        if (selected) {
+            selected.scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    function openStartMenu() {
+        startMenu.classList.add('show');
+        startButton.classList.add('active');
+        startInput.value = '';
+        startSelectedIndex = 0;
+        renderStartMenu();
+        startList.scrollTop = 0;
+        startInput.focus();
+    }
+
+    function closeStartMenu() {
+        startMenu.classList.remove('show');
+        startButton.classList.remove('active');
+    }
+
+    startButton.addEventListener('click', function () {
+        if (startMenu.classList.contains('show')) {
+            closeStartMenu();
+        } else {
+            openStartMenu();
+        }
+    });
+    startInput.addEventListener('input', function () {
+        startSelectedIndex = 0;
+        renderStartMenu();
+    });
+    startInput.addEventListener('keydown', function (event) {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            startSelectedIndex = Math.min(startSelectedIndex + 1, startResults.length - 1);
+            renderStartMenu();
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            startSelectedIndex = Math.max(startSelectedIndex - 1, 0);
+            renderStartMenu();
+        } else if (event.key === 'Enter') {
+            event.preventDefault();
+            if (startResults[startSelectedIndex]) {
+                openItem(startResults[startSelectedIndex]);
+            }
+        } else if (event.key === 'Escape') {
+            closeStartMenu();
+        }
+    });
+    startList.addEventListener('click', function (event) {
+        var element = event.target.closest('.cd-start-item');
+        if (element) {
+            openItem(startResults[Number(element.dataset.index)]);
+        }
+    });
+    startUser.addEventListener('click', function () {
+        openItem({ title: adminName, href: '/admins/me', icon: 'fas fa-user' });
+    });
+    trayUser.addEventListener('click', function () {
+        openItem({ title: adminName, href: '/admins/me', icon: 'fas fa-user' });
+    });
+    startMenu.querySelector('.cd-start-customization').addEventListener('click', function () {
+        window.location.href = '/ezysupport/settings';
+    });
+    startMenu.querySelector('.cd-start-exit').addEventListener('click', function () {
+        storageSet(localStorage, DISABLED_KEY, '1');
+        window.location.reload();
+    });
+    document.addEventListener('pointerdown', function (event) {
+        if (startMenu.classList.contains('show')
+            && !startMenu.contains(event.target)
+            && !startButton.contains(event.target)
+        ) {
+            closeStartMenu();
+        }
+        if (!event.target.closest('.cd-icon')) {
+            document.querySelectorAll('.cd-icon.selected').forEach(function (selected) {
+                selected.classList.remove('selected');
+            });
+        }
+    });
+    document.addEventListener('keydown', function (event) {
+        if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k') {
+            event.preventDefault();
+            if (startMenu.classList.contains('show')) {
+                closeStartMenu();
+            } else {
+                openStartMenu();
+            }
+        } else if (event.key === 'Escape' && startMenu.classList.contains('show')) {
+            closeStartMenu();
+        }
+    });
+    taskbar.querySelector('.cd-show-desktop').addEventListener('click', function () {
+        windows.forEach(function (win) {
+            win.element.classList.add('cd-minimized');
+        });
+        refreshFocus();
+        saveState();
+    });
+
+    var state = loadState();
+    restoring = true;
+    var mainState = state.main || {};
+    var mainWindow = createWindow({
+        kind: 'main',
+        url: currentPath,
+        title: mainTitle,
+        icon: mainIcon,
+        geometry: mainState.geometry,
+        maximized: mainState.geometry ? mainState.maximized : isMobile(),
+        zIndex: mainState.zIndex
+    });
+    (state.windows || []).forEach(function (data) {
+        if (data.kind === 'page' && pathOf(data.url) === currentPath) {
+            return;
+        }
+        createWindow(data);
+    });
+    restoring = false;
+    focusWindow(mainWindow);
+})();
+</script>

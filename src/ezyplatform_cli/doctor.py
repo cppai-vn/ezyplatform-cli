@@ -1,15 +1,16 @@
 """`ezy doctor`: what is installed where, and what to fix.
 
 Checks ezy itself (version, latest release, Python, uv), the ezyplatform
-plugin in each coding agent, the ezy skill copies, agents that would see the
-skills twice (plugin plus a copy, or two copies), and the site project in the
-current folder when there is one.
+plugin in each coding agent, skill-based coding agents, ezy skill copies,
+agents that would see the skills twice (plugin plus a copy, or two copies),
+and the site project in the current folder when there is one.
 """
 import os
 import platform
 import sys
 
 from . import __version__, agents, self_update, skills_install
+from .status_output import print_status
 
 
 def project_root(start):
@@ -30,6 +31,10 @@ def duplicates(rows, copies):
     for name, dirs in skills_install.READS.items():
         sources = [d for d in (skills_install.expand(p) for p in dirs) if d in with_copy]
         has_plugin = any(r[0] == name and r[3] for r in rows)
+        if name == 'cursor' and has_plugin:
+            # Cursor can report installed via a skill copy alone; only flag duplicate if native plugin exists too.
+            _, _, src = agents.local_plugin_status('cursor')
+            has_plugin = src == 'plugin'
         label = agents.AGENTS[name]['label'] if name in agents.AGENTS else skills_install.TARGETS[name]['label']
         if has_plugin and sources:
             found.append(f'{label}: plugin + copy in {", ".join(sources)}')
@@ -43,38 +48,45 @@ def main(args):
         print('usage: ezy doctor\n\n' + __doc__)
         return 0
     problems = []
-    print('ezy')
+    print('ezy', flush=True)
     try:
-        latest = self_update.latest_version()
+        latest = self_update.latest_version(timeout=10)
         newer = self_update.parse(latest) > self_update.parse(__version__)
-        print(f'  version   {__version__}' + (f'  (update available: {latest}, run: ezy update)' if newer else '  (latest)'))
+        print_status(f'version   {__version__}' + (f'  (update available: {latest}, run: ezy update)' if newer else '  (latest)'),
+                     None if newer else True)
     except OSError:
-        print(f'  version   {__version__}  (could not check for updates)')
-    print(f"  skills    ezyplatform {skills_install.bundled_info().get('version', '?')}")
-    print(f'  python    {platform.python_version()}  ({sys.executable})')
-    print(f"  uv        {self_update.find_uv() or 'not found'}   installed with: {self_update.installer()}")
+        print_status(f'version   {__version__}  (could not check for updates)', False)
+    skills_version = skills_install.bundled_info().get('version')
+    print_status(f"skills    ezyplatform {skills_version or '?'}", bool(skills_version))
+    print_status(f'python    {platform.python_version()}  ({sys.executable})', True)
+    uv = self_update.find_uv()
+    print_status(f"uv        {uv or 'not found'}   installed with: {self_update.installer()}", bool(uv))
 
-    print('\nCoding agents (plugin ezyplatform@cppai)')
-    rows = agents.status_rows()
-    agents.print_status(rows=rows)
-    if not any(r[2] and r[3] for r in rows):
+    print('\nCoding agents (plugin ezyplatform@cppai)', flush=True)
+    rows = agents.status_rows(progress=True)
+    unknown = [r[0] for r in rows if r[2] and r[3] is None and not agents.AGENTS[r[0]].get('manual')]
+    if unknown:
+        problems.append('could not check plugins for ' + ', '.join(unknown)
+                        + ': retry ezy plugins status --target ' + ','.join(unknown))
+    if not unknown and not any(r[2] and r[3] for r in rows):
         problems.append('no agent has the ezyplatform plugin: ezy plugins install')
-    missing = [r[0] for r in rows if r[2] and r[3] is False]
+    missing = [r[0] for r in rows if r[2] and r[3] is False and not agents.AGENTS[r[0]].get('manual')]
     if missing:
         print(f"  tip: add the plugin there too with: ezy plugins install --target {','.join(missing)}")
+
+    other = agents.print_other_agents_status()
+    missing_other = [label for _, label, found, installed_dir, _ in other if found and not installed_dir]
+    if missing_other:
+        problems.append(f"{', '.join(missing_other)} has no ezy-* skill copy: ezy skills install")
 
     print('\nSkill copies')
     copies = skills_install.copies()
     for dest, result in copies:
-        print(f'  {dest:50} {result}')
+        print_status(f'{dest:50} {result}', result == 'ok')
         if result != 'ok':
             problems.append(f'skill copy {dest} is {result}: ezy skills install --dir {dest}')
     if not copies:
-        print('  none')
-    for target in skills_install.TARGETS.values():
-        dest = skills_install.expand(target['dir'])
-        if skills_install.shutil.which(target['exe']) and dest not in {d for d, _ in copies}:
-            problems.append(f"{target['label']} has no plugin support and no skill copy: ezy skills install")
+        print_status('none')
 
     dupes = duplicates(rows, copies)
     for line in dupes:
@@ -89,7 +101,9 @@ def main(args):
 
     print()
     if problems:
-        print(f'{len(problems)} thing(s) to fix:\n  - ' + '\n  - '.join(problems))
+        print_status(f'{len(problems)} thing(s) to fix:', False)
+        for problem in problems:
+            print_status(problem, False)
         return 1
-    print('All good.')
+    print_status('All good.', True)
     return 0

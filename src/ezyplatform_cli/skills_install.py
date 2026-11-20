@@ -14,26 +14,105 @@ import shutil
 import sys
 
 from . import __version__, agents
+from .status_output import print_status
 
 SKILLS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'skills')
 MANIFEST = os.path.join('ezy-shared', '.ezy-install.json')
 
-# agents without plugin support -> their own skill folder
-TARGETS = {'opencode': {'label': 'OpenCode', 'exe': 'opencode', 'dir': '~/.config/opencode/skills'}}
-# skill folders each agent reads (from the agents' docs), used to find duplicates
+# Agents without native cppai plugin CLI support -> their skill folder & detection rules.
+# Antigravity (CLI + IDE) and Gemini CLI both read ~/.gemini/skills natively, so sharing
+# that folder installs once for both without duplicate skill loading.
+TARGETS = {
+    'antigravity': {
+        'label': 'Antigravity',
+        'exe': 'agy',
+        'exes': ('agy', 'antigravity'),
+        'apps': ('/Applications/Antigravity.app', '~/Applications/Antigravity.app'),
+        'app_dirs': ('~/.gemini/antigravity-cli', '~/.gemini/antigravity'),
+        'dir': '~/.gemini/skills',
+    },
+    'gemini': {
+        'label': 'Gemini CLI',
+        'exe': 'gemini',
+        'exes': ('gemini',),
+        'apps': (),
+        'app_dirs': (),
+        'dir': '~/.gemini/skills',
+    },
+    'opencode': {
+        'label': 'OpenCode',
+        'exe': 'opencode',
+        'exes': ('opencode',),
+        'apps': ('/Applications/OpenCode.app', '~/Applications/OpenCode.app'),
+        'app_dirs': ('~/.config/opencode', '~/.opencode'),
+        'dir': '~/.config/opencode/skills',
+    },
+    'windsurf': {
+        'label': 'Windsurf',
+        'exe': 'windsurf',
+        'exes': ('windsurf',),
+        'apps': ('/Applications/Windsurf.app', '~/Applications/Windsurf.app'),
+        'app_dirs': ('~/.codeium/windsurf',),
+        'dir': '~/.codeium/windsurf/skills',
+    },
+    'kiro': {
+        'label': 'Kiro',
+        'exe': 'kiro',
+        'exes': ('kiro', 'kiro-cli'),
+        'apps': ('/Applications/Kiro.app', '~/Applications/Kiro.app'),
+        'app_dirs': ('~/.kiro',),
+        'dir': '~/.kiro/skills',
+    },
+    'droid': {
+        'label': 'Factory Droid',
+        'exe': 'droid',
+        'exes': ('droid',),
+        'apps': (),
+        'app_dirs': (),
+        'dir': '~/.factory/skills',
+    },
+    'pi': {
+        'label': 'Pi',
+        'exe': 'pi',
+        'exes': ('pi',),
+        'apps': (),
+        'app_dirs': (),
+        'dir': '~/.pi/agent/skills',
+    },
+}
+
+# skill folders each agent reads (from the agents' docs), used to find installations & duplicates
 READS = {
     'claude': ['~/.claude/skills'],
     'codex': ['~/.agents/skills', '~/.codex/skills'],
     'copilot': ['~/.copilot/skills', '~/.claude/skills', '~/.agents/skills'],
     'cursor': ['~/.cursor/skills', '~/.agents/skills'],
     'omp': ['~/.omp/agent/skills', '~/.agents/skills'],
+    'antigravity': ['~/.gemini/skills', '~/.gemini/antigravity-cli/skills', '~/.gemini/antigravity/skills', '~/.agents/skills'],
+    'gemini': ['~/.gemini/skills', '~/.agents/skills'],
     'opencode': ['~/.config/opencode/skills', '~/.claude/skills', '~/.agents/skills'],
+    'windsurf': ['~/.codeium/windsurf/skills'],
+    'kiro': ['~/.kiro/skills'],
+    'droid': ['~/.factory/skills'],
+    'pi': ['~/.pi/agent/skills'],
 }
 
 
 def expand(path):
     """Comparable absolute path: symlinks resolved, case folded where the OS ignores case."""
     return os.path.normcase(os.path.realpath(os.path.expanduser(path)))
+
+
+def target_detected(target):
+    """True when a skill-based coding agent is installed on this computer."""
+    exes = target.get('exes') or ((target['exe'],) if target.get('exe') else ())
+    if any(shutil.which(e) for e in exes):
+        return True
+    apps = target.get('apps', ())
+    if sys.platform == 'darwin' and apps and any(os.path.exists(os.path.expanduser(a)) for a in apps):
+        app_dirs = target.get('app_dirs', ())
+        return not app_dirs or any(os.path.exists(os.path.expanduser(d)) for d in app_dirs)
+    return False
 
 
 def state_path():
@@ -116,6 +195,25 @@ def has_skills(dest):
     return os.path.isfile(os.path.join(dest, 'ezy-guide', 'SKILL.md'))
 
 
+def agent_skill_status(name):
+    """Return (installed_dir, verify_result) for the first folder read by `name` containing ezy-* skills."""
+    for raw in READS.get(name, []):
+        dest = expand(raw)
+        if has_skills(dest):
+            return dest, verify(dest)
+    return None, None
+
+
+def target_status_rows():
+    """[(name, label, detected, installed_dir, verify_result)] for all skill-based coding agents."""
+    rows = []
+    for name, target in TARGETS.items():
+        found = target_detected(target)
+        installed_dir, result = agent_skill_status(name) if found else (None, None)
+        rows.append((name, target['label'], found, installed_dir, result))
+    return rows
+
+
 def plugin_readers(dest):
     """Labels of agents that read `dest` and already have the plugin (installing there would duplicate)."""
     found = []
@@ -145,19 +243,19 @@ def verify(dest):
 def install_to(dest, force=False):
     """Copy the bundled skills into `dest`; replaces only ezy's own earlier copy (or, with --force, same-named folders)."""
     if dest == expand(SKILLS):
-        print(f'  x {dest} is the skills bundled with ezy itself')
+        print_status(f'{dest} is the skills bundled with ezy itself', False)
         return False
     readers = plugin_readers(dest)
     if readers and not force:
-        print(f'  x {dest}: also read by {", ".join(readers)}, which already has the plugin; '
-              'the skills would appear twice there (--force to copy anyway)')
+        print_status(f'{dest}: also read by {", ".join(readers)}, which already has the plugin; '
+                     'the skills would appear twice there (--force to copy anyway)', False)
         return False
     bundled = skill_names(SKILLS)
     ours = installed_names(dest)
     foreign = [n for n in bundled if os.path.lexists(os.path.join(dest, n)) and n not in ours]
     if foreign and not force:
-        print(f'  x {dest}: has skills with the same names that ezy did not install ({", ".join(foreign)}); '
-              '--force to replace them')
+        print_status(f'{dest}: has skills with the same names that ezy did not install ({", ".join(foreign)}); '
+                     '--force to replace them', False)
         return False
     # copy next to the destination first, so a failed copy leaves the old skills in place
     staging = os.path.join(dest, '.ezy-staging')
@@ -169,7 +267,7 @@ def install_to(dest, force=False):
             shutil.copytree(os.path.join(SKILLS, name), os.path.join(staging, name), ignore=ignore)
     except OSError as err:
         remove_entry(staging)
-        print(f'  x {dest}: copy failed ({err}); the existing skills are unchanged')
+        print_status(f'{dest}: copy failed ({err}); the existing skills are unchanged', False)
         return False
     for name in sorted(set(ours) | set(foreign)):
         remove_entry(os.path.join(dest, name))
@@ -183,19 +281,19 @@ def install_to(dest, force=False):
         json.dump(manifest, fh, indent=1)
     record_copy(dest, True)
     result = verify(dest)
-    print(f"  {'✓' if result == 'ok' else 'x'} {dest}: ezyplatform skills {info.get('version')} ({result})")
+    print_status(f"{dest}: ezyplatform skills {info.get('version')} ({result})", result == 'ok')
     return result == 'ok'
 
 
 def remove_from(dest):
     names = installed_names(dest)
     if not names:
-        print(f'  - {dest}: no skills installed by ezy')
+        print_status(f'{dest}: no skills installed by ezy', False)
         return False
     for name in names:
         remove_entry(os.path.join(dest, name))
     record_copy(dest, False)
-    print(f'  ✓ {dest}: ezy-* skills removed')
+    print_status(f'{dest}: ezy-* skills removed', True)
     return True
 
 
@@ -212,19 +310,34 @@ def copies():
 
 
 def default_dests():
-    return [expand(t['dir']) for t in TARGETS.values() if shutil.which(t['exe'])]
+    """Deduplicated skill install folders for all detected skill-based coding agents."""
+    dests = []
+    seen = set()
+    for target in TARGETS.values():
+        if not target_detected(target):
+            continue
+        dest = expand(target['dir'])
+        if dest not in seen:
+            seen.add(dest)
+            dests.append(dest)
+    return dests
 
 
 def resolve_dests(opts):
     if opts.dir:
         return [expand(opts.dir)]
     if opts.target:
-        names = list(TARGETS) if opts.target == 'all' else [t.strip() for t in opts.target.split(',')]
+        names = list(TARGETS) if opts.target == 'all' else [t.strip() for t in opts.target.split(',') if t.strip()]
         unknown = [n for n in names if n not in TARGETS]
         if unknown:
             raise SystemExit(f"ezy: skills target must be {', '.join(TARGETS)} or --dir PATH "
                              f"(agents with plugins use: ezy plugins install); got {', '.join(unknown)}")
-        return [expand(TARGETS[n]['dir']) for n in names]
+        dests = []
+        for n in names:
+            d = expand(TARGETS[n]['dir'])
+            if d not in dests:
+                dests.append(d)
+        return dests
     return None
 
 
@@ -233,25 +346,36 @@ def main(args):
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('action', choices=['status', 'install', 'verify', 'remove'])
     parser.add_argument('--target', help=f"{', '.join(TARGETS)} or all (default: those found on this computer)")
-    parser.add_argument('--dir', help='another skills folder, for agents not listed (e.g. Windsurf, Kiro)')
+    parser.add_argument('--dir', help='another skills folder, for agents not listed')
     parser.add_argument('--force', action='store_true', help='copy even where it would duplicate a plugin')
     opts = parser.parse_args(args)
     dests = resolve_dests(opts)
     if opts.action in ('status', 'verify'):
         found = [(d, verify(d)) for d in dests] if dests else copies()
-        if not found:
-            print('no ezy skill copies on this computer (agents with plugins do not need them)')
+        detected_agents = [row for row in target_status_rows() if row[2]] if not dests else []
+        if not found and not detected_agents:
+            print_status('no ezy skill copies on this computer (agents with plugins do not need them)')
             return 0
+        ok = True
         for dest, result in found:
-            print(f'  {dest:50} {result}')
-        return 0 if all(r == 'ok' for _, r in found) else 1
+            print_status(f'{dest:50} {result}', result == 'ok')
+            ok &= result == 'ok'
+        if detected_agents and opts.action == 'status':
+            for _, label, _, installed_dir, result in detected_agents:
+                if installed_dir:
+                    print_status(f'{label:20} ezy-* skills {result} ({installed_dir})', result == 'ok')
+                    ok &= result == 'ok'
+                else:
+                    print_status(f'{label:20} ezy-* skills not installed (ezy skills install)', False)
+                    ok = False
+        return 0 if ok else 1
     if opts.action == 'remove':
         targets = dests or [d for d, _ in copies() if read_manifest(d)]
         return 0 if all([remove_from(d) for d in targets]) else 1
     dests = dests or default_dests()
     if not dests:
-        print('No agent without plugin support was found (' + ', '.join(t['label'] for t in TARGETS.values())
-              + '). Agents with plugins: ezy plugins install. Another agent: ezy skills install --dir <its skills folder>')
+        print_status('No agent without plugin support was found (' + ', '.join(t['label'] for t in TARGETS.values())
+                     + '). Agents with plugins: ezy plugins install. Another agent: ezy skills install --dir <its skills folder>')
         return 0
     return 0 if all([install_to(d, opts.force) for d in dests]) else 1
 

@@ -4,8 +4,11 @@ Each command runs the matching skill script bundled in `skills/` with the same
 arguments, so behaviour, dry runs and safety checks are exactly the plugin's.
 """
 import importlib
+import io
 import json
 import os
+import shutil
+import subprocess
 import sys
 
 from . import __version__
@@ -32,6 +35,17 @@ COMMANDS = {
     'i18n': ('ezy-i18n/scripts/ezy_messages.py', [], 'ezy i18n'),
     'verify': ('ezy-verify/scripts/ezy_verify.py', [], 'ezy verify'),
     'mail': ('ezy-mail/scripts/ezy_mail.py', [], 'ezy mail'),
+    'admin-customize': ('ezy-admin-customize/scripts/ezyadmin.py', [], 'ezy admin-customize'),
+    'market': ('ezy-market-submit/scripts/ezymarket.py', [], 'ezy market'),
+    'publish-skill': ('ezy-publish-skill/scripts/ezyskill.py', [], 'ezy publish-skill'),
+}
+
+# Commands that do not require an EzyArticle environment.json project
+STANDALONE_COMMANDS = {'admin-customize', 'market', 'publish-skill'}
+
+# command -> (unix_bash_script, windows_ps1_script)
+SHELL_COMMANDS = {
+    'dev': ('ezy-develop/scripts/ezydev.sh', 'ezy-develop/scripts/ezydev.ps1'),
 }
 
 # command -> (module, function) for commands that manage ezy and the agents
@@ -46,7 +60,7 @@ TOOLS = {
     'uninstall': ('self_update', 'uninstall'),
 }
 
-HELP = """ezy — EzyPlatform / EzyArticle site tools (ezyplatform skills {skills})
+HELP = """ezy — EzyPlatform / EzyArticle tools (ezyplatform skills {skills})
 
 Usage: ezy <command> [args]      ezy <command> --help for details
 
@@ -78,6 +92,18 @@ Publish (local -> server, dry run unless --yes)
 
 Check
   verify preview <slug> | verify live [path] [--expect TEXT]
+
+Develop & Customize (standalone)
+  dev check|setup|create|link|sync-versions|export|market|install-plugin|...
+                                 build EzyPlatform themes & plugins (JDK 8, Maven, SDK)
+  admin-customize check|login|pull|push|restore|reset|verify|open
+                                 customize EzyPlatform admin UI head/foot via EzySupport
+
+Marketplace (ezyplatform.com, EzyLogin CLI login)
+  market login|projects|categories|create|update|upload-version|release|...
+                                 submit & release plugins/themes on ezyplatform.com
+  publish-skill check|login|scan|pack|categories|list|add|update|trash|...
+                                 scan, pack & publish AI skills to ezyplatform.com
 
 Tool
   update                         latest ezy release, then refresh plugins and skill copies
@@ -112,6 +138,41 @@ def run_script(script, args, prog):
     finally:
         sys.argv = saved
     return 0
+
+
+def _stdio_is_real():
+    """True when stdout/stderr are backed by real OS file descriptors (not StringIO in tests)."""
+    try:
+        sys.stdout.fileno()
+        sys.stderr.fileno()
+        return True
+    except (AttributeError, io.UnsupportedOperation, ValueError):
+        return False
+
+
+def run_shell_script(unix_script, win_script, args):
+    """Run a bundled bash/PowerShell script, streaming live when stdio is real."""
+    if os.name == 'nt':
+        shell = shutil.which('pwsh') or shutil.which('powershell') or 'powershell'
+        path = os.path.join(SKILLS, win_script)
+        norm = ['help'] if (not args or args[0] in ('-h', '--help')) else args
+        cmd = [shell, '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path] + norm
+    else:
+        shell = shutil.which('bash') or 'bash'
+        path = os.path.join(SKILLS, unix_script)
+        cmd = [shell, path] + args
+    try:
+        if _stdio_is_real():
+            return subprocess.run(cmd).returncode
+        proc = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
+        if proc.stdout:
+            sys.stdout.write(proc.stdout)
+        if proc.stderr:
+            sys.stderr.write(proc.stderr)
+        return proc.returncode
+    except FileNotFoundError:
+        print(f"ezy: required shell '{shell}' not found on PATH", file=sys.stderr)
+        return 1
 
 
 def exit_code(exc):
@@ -153,6 +214,12 @@ def main(argv=None):
             return exit_code(exc)
         except KeyboardInterrupt:
             return 130
+    if argv[0] in SHELL_COMMANDS:
+        unix_script, win_script = SHELL_COMMANDS[argv[0]]
+        try:
+            return run_shell_script(unix_script, win_script, argv[1:])
+        except KeyboardInterrupt:
+            return 130
     if argv[0] not in COMMANDS:
         print(f"ezy: unknown command '{argv[0]}'. Run 'ezy --help'.", file=sys.stderr)
         return 2
@@ -162,9 +229,12 @@ def main(argv=None):
     except KeyboardInterrupt:
         return 130
     except OSError as err:
-        # URLError and socket errors: the scripts only catch HTTP errors from the server
-        print(f"ezy: cannot reach the admin server: {getattr(err, 'reason', err)}\n"
-              "     check admin_url in environment.json, then run 'ezy check'", file=sys.stderr)
+        if argv[0] in STANDALONE_COMMANDS:
+            print(f"ezy: {getattr(err, 'reason', err)}", file=sys.stderr)
+        else:
+            # URLError and socket errors: the scripts only catch HTTP errors from the server
+            print(f"ezy: cannot reach the admin server: {getattr(err, 'reason', err)}\n"
+                  "     check admin_url in environment.json, then run 'ezy check'", file=sys.stderr)
         return 2
 
 

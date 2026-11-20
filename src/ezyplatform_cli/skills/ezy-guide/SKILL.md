@@ -1,16 +1,17 @@
 ---
 name: ezy-guide
-description: Guide and index for the ezy-* skill set that manages EzyPlatform / EzyArticle sites from a local project (environment.json + pages/ + page-fragments/). Use first for any EzyPlatform site task to pick the right ezy-* skill and workflow, when unsure which skill applies, when checking which site and permissions the access token gives, and before any API call or publish (safety rules, verified platform gotchas, skill-improvement loop).
+description: Guide and index for the ezy-* skill set covering EzyPlatform / EzyArticle site management (environment.json + pages/ + page-fragments/), Java theme & plugin development, admin UI customization, and ezyplatform.com marketplace publishing (plugins/themes and AI skills). Use first for any EzyPlatform task to pick the right ezy-* skill and workflow, when unsure which skill applies, when checking which site and permissions the access token gives, and before any API call or publish (safety rules, verified platform gotchas, skill-improvement loop).
 ---
 
 # ezy-guide
 
-> Paths: `${CLAUDE_SKILL_DIR}` is this skill's folder (Claude Code substitutes it; other agents: replace it with the folder containing this SKILL.md). Sibling skills and the shared library `ezy-shared` sit next to it. Run commands from the site project root (the folder with `environment.json`).
+> Paths: `${CLAUDE_SKILL_DIR}` is this skill's folder (Claude Code substitutes it; other agents: replace it with the folder containing this SKILL.md). Sibling skills and the shared library `ezy-shared` sit next to it. Run EzyArticle site commands from the site project root (the folder with `environment.json`).
 
 Signpost for the `ezy-*` skills: which skill does what, in what order, under which rules. It does not change the site itself.
 
 ## 1. Orient (always)
 
+For **EzyArticle site management** (`ezy-new` through `ezy-verify`):
 1. Find the project root (folder with `environment.json`). No `environment.json`, placeholder token, or HTTP 401 → use `ezy-new` first. Never print `admin_access_token`; never put it in a URL, browser page or commit.
 2. Read the project `AGENTS.md` (EzyArticle conventions from the VS Code extension) and `README.md` (site-specific notes). Skills point to them rather than copying them.
 3. Check which site and role you are acting as (read-only):
@@ -19,11 +20,13 @@ Signpost for the `ezy-*` skills: which skill does what, in what order, under whi
    ```
 4. Before any API call or publish, load `references/platform-gotchas.md` — verified server behaviour that silently breaks naive scripts.
 
+For **standalone platform & marketplace skills** (`ezy-develop`, `ezy-admin-customize`, `ezy-market-submit`, `ezy-publish-skill`): they do **not** require an EzyArticle `environment.json` folder — they use the local EzyPlatform SDK or EzyLogin CLI login directly. Jump straight to the matching skill.
+
 ## 2. Which skill
 
 | User intent | Skill |
 |---|---|
-| New project, no `environment.json`, token missing/expired, setup check | `ezy-new` |
+| New site project, no `environment.json`, token missing/expired, setup check | `ezy-new` |
 | "Is local up to date?", pull server changes, before editing | `ezy-sync` |
 | Build or change a page, fragment, theme, copy, content translation | `ezy-author` |
 | Images, CSS/JS files, logos, anything under `api/v1/media` | `ezy-media` |
@@ -32,6 +35,10 @@ Signpost for the `ezy-*` skills: which skill does what, in what order, under whi
 | Remove a page, post or fragment (move to Trash), undo it | `ezy-publish remove` / `restore` |
 | Mail not arriving, mail templates, contact form, any feature that sends email | `ezy-mail` |
 | Preview locally, check the live site | `ezy-verify` |
+| Build a Java theme/plugin/module, set up JDK 8 / Maven / SDK, link market plugins, export | `ezy-develop` |
+| Customize or restyle the EzyPlatform admin UI (CSS/JS head & foot via EzySupport, desktop mode) | `ezy-admin-customize` |
+| Submit/upload/release a plugin or theme bundle to the ezyplatform.com marketplace | `ezy-market-submit` |
+| Publish/sell/update an AI skill on the ezyplatform.com skill library | `ezy-publish-skill` |
 
 ## 3. Standard workflow for a site change
 

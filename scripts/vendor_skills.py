@@ -21,7 +21,9 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEST = os.path.join(ROOT, 'src', 'ezyplatform_cli', 'skills')
-DEFAULT_SOURCE = os.path.join(os.path.dirname(ROOT), 'cppai', 'agents-plugins', 'ezyplatform')
+SIBLING_SOURCE = os.path.join(os.path.dirname(ROOT), 'agents-plugins', 'ezyplatform')
+DEFAULT_SOURCE = (SIBLING_SOURCE if os.path.isdir(SIBLING_SOURCE)
+                  else os.path.join(os.path.dirname(ROOT), 'cppai', 'agents-plugins', 'ezyplatform'))
 
 # Usage lines in script docstrings (also shown by --help): script + subcommand -> ezy command.
 USAGE = [
@@ -41,6 +43,10 @@ USAGE = [
 HINTS = [
     ('ezy-publish/scripts/ezy_publish.py', 'python3 {os.path.relpath(__file__, root)} restore', 'ezy publish restore', 2),
     ('ezy-new/scripts/ezy_new.py', 'python3 {os.path.abspath(__file__)} check', 'ezy check', 1),
+    ('ezy-admin-customize/scripts/ezyadmin.py', "prog='ezyadmin.py'", "prog='ezy admin-customize'", 1),
+    ('ezy-develop/scripts/ezydev.sh', 'usage: ezydev.sh', 'usage: ezy dev', 2),
+    ('ezy-develop/scripts/ezydev.ps1', 'usage: powershell -NoProfile -ExecutionPolicy Bypass -File ezydev.ps1', 'usage: ezy dev', 1),
+    ('ezy-develop/scripts/ezydev.ps1', 'usage: ezydev.ps1', 'usage: ezy dev', 1),
 ]
 
 
@@ -68,7 +74,7 @@ def main():
     shutil.copytree(skills, DEST, ignore=shutil.ignore_patterns('*.pyc', '__pycache__', '.DS_Store'))
     for folder, _, files in os.walk(DEST):
         for name in files:
-            if name.endswith('.py'):
+            if name.endswith(('.py', '.sh', '.ps1')):
                 path = os.path.join(folder, name)
                 text = open(path, encoding='utf-8').read()
                 new = rewrite(path, text)

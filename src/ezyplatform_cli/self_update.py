@@ -22,7 +22,7 @@ INSTALL_HINT = ('  macOS / Linux: curl -LsSf https://raw.githubusercontent.com/c
                 '  Windows:       powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/cppai-vn/ezyplatform-cli/main/install.ps1 | iex"')
 
 
-def latest_version():
+def latest_version(timeout=10):
     """Version of the latest release, e.g. '0.1.1'.
 
     The API answer is current; when it is rate limited, fall back to the
@@ -33,11 +33,11 @@ def latest_version():
     headers = {'User-Agent': 'ezy/' + __version__}
     try:
         req = urllib.request.Request(API + '/releases/latest', headers=dict(headers, Accept='application/vnd.github+json'))
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             tag = json.load(resp).get('tag_name') or ''
     except (OSError, ValueError):
         req = urllib.request.Request(REPO + '/releases/latest', method='HEAD', headers=dict(headers, Accept='*/*'))
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             tag = resp.geturl().rstrip('/').rsplit('/tag/', 1)[-1]
     if not tag.startswith('v'):
         raise OSError('no release found on GitHub')

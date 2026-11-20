@@ -1,6 +1,6 @@
 # ezyplatform-cli
 
-`ezy` — manage an [EzyPlatform](https://ezyplatform.com) / EzyArticle site from a local project folder: create the project, pull content, publish with backup and rollback, manage media, translations and mail, verify the live site.
+`ezy` — manage an [EzyPlatform](https://ezyplatform.com) / EzyArticle site, develop EzyPlatform themes & plugins, customize the admin UI, and submit plugins, themes or AI skills to the EzyPlatform marketplace from one command.
 
 It packages the scripts of the [`ezyplatform` agent plugin](https://github.com/cppai-vn/agents-plugins/tree/main/ezyplatform) as one command, so people (and agents without plugin support) can use them without installing a plugin. Pure Python standard library, Python 3.9+.
 
@@ -60,6 +60,10 @@ ezy publish apply page:home --yes   # backup -> publish -> verify, prints the ro
 | `ezy i18n diff\|push <web\|admin>` | UI message translations, changed keys only | ezy-i18n |
 | `ezy mail status\|templates\|pull\|push\|contact-settings\|test-contact` | EzyMail health, templates, Contact Us flow | ezy-mail |
 | `ezy verify preview <slug>` · `ezy verify live [path]` | Local preview with fragments inlined · live page checks | ezy-verify |
+| `ezy dev check\|setup\|create\|link\|export\|market\|...` | Develop EzyPlatform themes & plugins (JDK 8, Maven, SDK, market lookup/link, export, decompile) | ezy-develop |
+| `ezy admin-customize check\|login\|pull\|push\|restore\|reset\|verify\|open` | Customize the EzyPlatform admin UI (CSS/JS head & foot via EzySupport, backup/rollback) | ezy-admin-customize |
+| `ezy market login\|projects\|categories\|create\|update\|upload-version\|release\|...` | Submit and release plugins/themes to ezyplatform.com via EzyLogin CLI login | ezy-market-submit |
+| `ezy publish-skill check\|login\|scan\|pack\|categories\|list\|add\|update\|trash\|...` | Scan, pack, publish and manage AI skills on the ezyplatform.com skill library | ezy-publish-skill |
 
 `ezy <command> --help` shows every option. Targets are `page:<slug>` or `fragment:<page_name>/<fragment_name>`. Set `EZY_ENV=<name>` to use a non-default environment from `environment.json`.
 
@@ -94,7 +98,7 @@ The compose file fixes two problems of the image on an empty database: its entry
 The skills in `src/ezyplatform_cli/skills/` are a copy of the plugin's `skills/` folder. To update them:
 
 ```bash
-python3 scripts/vendor_skills.py ../cppai/agents-plugins/ezyplatform   # path to the plugin folder
+python3 scripts/vendor_skills.py ../agents-plugins/ezyplatform   # path to the plugin folder
 python3 -m unittest discover -s tests
 ```
 
@@ -104,13 +108,13 @@ Release: bump `__version__` in `src/ezyplatform_cli/__init__.py`, commit, then `
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Bundled starter templates come from the EzyArticle VS Code extension by YoungMonkeys (MIT); see `src/ezyplatform_cli/skills/ezy-new/templates/NOTICE.md`.
+MIT — see [LICENSE](LICENSE). Bundled starter templates come from the EzyArticle VS Code extension by YoungMonkeys (MIT); see `src/ezyplatform_cli/skills/ezy-new/templates/NOTICE.md`. The bundled `ezy-develop`, `ezy-admin-customize`, `ezy-market-submit`, and `ezy-publish-skill` skills are adapted from the official [EzyPlatform Skill Library](https://ezyplatform.com/ezyai/skill-library) by YoungMonkeys.
 
 ---
 
 ## Tiếng Việt
 
-`ezy` là công cụ dòng lệnh quản trị site EzyPlatform / EzyArticle từ thư mục dự án trên máy: khởi tạo dự án, kéo nội dung, publish có sao lưu và khôi phục, quản lý media, bản dịch, mail và kiểm tra site thật. Đây là bản đóng gói các script của plugin `ezyplatform` thành một lệnh duy nhất, không cần cài plugin cho agent.
+`ezy` là công cụ dòng lệnh trọn gói cho EzyPlatform / EzyArticle: quản trị site (khởi tạo dự án, kéo nội dung, publish có sao lưu/khôi phục, media, bản dịch, mail, kiểm tra site thật), phát triển theme/plugin (`ezy dev`), tuỳ biến giao diện admin (`ezy admin-customize`), và đưa plugin/theme/AI skill lên chợ ezyplatform.com (`ezy market`, `ezy publish-skill`). Đây là bản đóng gói toàn bộ script của plugin `ezyplatform` thành một lệnh duy nhất, không cần cài plugin cho agent.
 
 **Cài đặt** (một dòng, không cần cài gì trước — script tự cài uv và Python nếu máy chưa có):
 

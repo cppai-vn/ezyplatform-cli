@@ -11,6 +11,7 @@ import argparse
 import sys
 
 from . import agents, doctor, skills_install
+from .status_output import print_status
 
 
 def ask(question, assume_yes, default=True):
@@ -40,21 +41,22 @@ def main(args):
               'To create a site project use: ezy new ' + ' '.join(extra), file=sys.stderr)
         return 2
 
-    print('1. Coding agents on this computer')
+    print('1. Coding agents on this computer', flush=True)
     names = agents.parse_targets(opts.target)
-    rows = agents.status_rows(names)
-    agents.print_status(rows=rows)
+    rows = agents.status_rows(names, progress=True)
+    if opts.target == 'all':
+        agents.print_other_agents_status()
     found = [r[0] for r in rows if r[2]]
 
     print('\n2. Plugin ezyplatform@cppai')
     todo = [r[0] for r in rows if r[2] and r[3] is not True and not agents.AGENTS[r[0]].get('manual')]
-    for name in [n for n in found if agents.AGENTS[n].get('manual')]:
-        print(f'  - {agents.AGENTS[name]["label"]}: {agents.CURSOR_STEPS}')
+    for name in [r[0] for r in rows if r[2] and agents.AGENTS[r[0]].get('manual') and r[3] is not True]:
+        print_status(f'{agents.AGENTS[name]["label"]}: {agents.CURSOR_STEPS}')
     installed = []
     if not found:
-        print('  no supported coding agent found (Claude Code, Codex, Copilot CLI, oh-my-pi, Cursor)')
+        print_status('no plugin-capable coding agent found (Claude Code, Codex, Copilot CLI, oh-my-pi, Cursor)')
     elif not todo:
-        print('  already installed everywhere it can be')
+        print_status('already installed everywhere it can be', True)
     elif ask('  Install it for ' + ', '.join(agents.AGENTS[n]['label'] for n in todo) + '?', opts.yes):
         installed = [n for n in todo if agents.install(n, opts.dry_run) == 'new']
 
@@ -62,13 +64,16 @@ def main(args):
     dests = skills_install.default_dests()
     copied = []
     if not dests:
-        print('  not needed: no agent without plugin support was found (OpenCode)')
+        print_status('not needed: no agent without plugin support was found')
     else:
-        labels = ', '.join(t['label'] for t in skills_install.TARGETS.values() if skills_install.expand(t['dir']) in dests)
-        want = opts.skills if opts.skills is not None else ask(f'  Copy the ezy skills for {labels}?', opts.yes)
+        matched_labels = [
+            t['label'] for t in skills_install.TARGETS.values()
+            if skills_install.target_detected(t) and skills_install.expand(t['dir']) in dests
+        ]
+        want = opts.skills if opts.skills is not None else ask(f'  Copy the ezy skills for {", ".join(matched_labels)}?', opts.yes)
         for dest in dests if want else []:
             if opts.dry_run:
-                print(f'  would copy the skills to {dest}')
+                print_status(f'would copy the skills to {dest}')
             elif skills_install.install_to(dest):
                 copied.append(dest)
 
@@ -80,13 +85,13 @@ def main(args):
     for name in installed:
         state = agents.plugin_installed(name)
         ok &= bool(state)
-        print(f"  {'✓' if state else 'x'} {agents.AGENTS[name]['label']}: plugin {'listed' if state else 'not listed'}")
+        print_status(f"{agents.AGENTS[name]['label']}: plugin {'listed' if state else 'not listed'}", bool(state))
     for dest in copied:
         result = skills_install.verify(dest)
         ok &= result == 'ok'
-        print(f"  {'✓' if result == 'ok' else 'x'} {dest}: {result}")
+        print_status(f'{dest}: {result}', result == 'ok')
     if not installed and not copied:
-        print('  nothing new was installed')
+        print_status('nothing new was installed')
 
     print('\n5. Doctor\n')
     code = doctor.main([])
