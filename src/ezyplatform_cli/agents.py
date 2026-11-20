@@ -127,6 +127,8 @@ def _has_app_bundle(apps, app_dirs):
 def detected(name):
     """True when the coding agent is installed on this computer."""
     agent = AGENTS[name]
+    if 'list' in agent and agent['list'] != _DEFAULT_LIST_COMMANDS.get(name):
+        return bool(shutil.which(agent['list'][0]))
     bins = agent.get('bins') or ((agent['list'][0],) if 'list' in agent else ())
     if any(shutil.which(b) for b in bins):
         return True

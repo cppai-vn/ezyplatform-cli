@@ -21,7 +21,12 @@ class LocalRegistryFastPathTest(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.home = os.path.join(tmp.name, 'home')
         os.makedirs(self.home)
-        env = mock.patch.dict(os.environ, {'HOME': self.home, 'CLAUDE_CONFIG_DIR': '', 'CODEX_HOME': ''})
+        env = mock.patch.dict(os.environ, {
+            'HOME': self.home,
+            'USERPROFILE': self.home,
+            'CLAUDE_CONFIG_DIR': '',
+            'CODEX_HOME': '',
+        })
         env.start()
         self.addCleanup(env.stop)
 
@@ -192,19 +197,27 @@ class SkillAgentsScanTest(unittest.TestCase):
         self.bin = os.path.join(tmp.name, 'bin')
         os.makedirs(self.home)
         os.makedirs(self.bin)
+        base_path = os.path.join(os.environ.get('SystemRoot', r'C:\Windows'), 'System32') if os.name == 'nt' else '/usr/bin:/bin'
         env = mock.patch.dict(os.environ, {
             'HOME': self.home,
+            'USERPROFILE': self.home,
+            'APPDATA': os.path.join(self.home, 'AppData', 'Roaming'),
             'XDG_CONFIG_HOME': os.path.join(self.home, '.config'),
-            'PATH': self.bin + os.pathsep + '/usr/bin:/bin',
+            'PATH': self.bin + os.pathsep + base_path,
         })
         env.start()
         self.addCleanup(env.stop)
 
     def make_bin(self, name):
-        path = os.path.join(self.bin, name)
-        with open(path, 'w') as fh:
-            fh.write('#!/bin/sh\nexit 0\n')
-        os.chmod(path, 0o755)
+        if os.name == 'nt':
+            path = os.path.join(self.bin, name + '.cmd')
+            with open(path, 'w') as fh:
+                fh.write('@echo off\r\nexit /b 0\r\n')
+        else:
+            path = os.path.join(self.bin, name)
+            with open(path, 'w') as fh:
+                fh.write('#!/bin/sh\nexit 0\n')
+            os.chmod(path, 0o755)
 
     def test_antigravity_and_gemini_share_one_deduplicated_skill_dir(self):
         self.make_bin('agy')
