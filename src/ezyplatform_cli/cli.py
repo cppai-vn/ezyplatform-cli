@@ -37,11 +37,10 @@ COMMANDS = {
     'mail': ('ezy-mail/scripts/ezy_mail.py', [], 'ezy mail'),
     'admin-customize': ('ezy-admin-customize/scripts/ezyadmin.py', [], 'ezy admin-customize'),
     'market': ('ezy-market-submit/scripts/ezymarket.py', [], 'ezy market'),
-    'publish-skill': ('ezy-publish-skill/scripts/ezyskill.py', [], 'ezy publish-skill'),
 }
 
 # Commands that do not require an EzyArticle environment.json project
-STANDALONE_COMMANDS = {'admin-customize', 'market', 'publish-skill'}
+STANDALONE_COMMANDS = {'admin-customize', 'market'}
 
 # command -> (unix_bash_script, windows_ps1_script)
 SHELL_COMMANDS = {
@@ -102,8 +101,6 @@ Develop & Customize (standalone)
 Marketplace (ezyplatform.com, EzyLogin CLI login)
   market login|projects|categories|create|update|upload-version|release|...
                                  submit & release plugins/themes on ezyplatform.com
-  publish-skill check|login|scan|pack|categories|list|add|update|trash|...
-                                 scan, pack & publish AI skills to ezyplatform.com
 
 Tool
   update                         latest ezy release, then refresh plugins and skill copies

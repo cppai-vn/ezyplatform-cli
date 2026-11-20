@@ -1,6 +1,6 @@
 ---
 name: ezy-guide
-description: Guide and index for the ezy-* skill set covering EzyPlatform / EzyArticle site management (environment.json + pages/ + page-fragments/), Java theme & plugin development, admin UI customization, and ezyplatform.com marketplace publishing (plugins/themes and AI skills). Use first for any EzyPlatform task to pick the right ezy-* skill and workflow, when unsure which skill applies, when checking which site and permissions the access token gives, and before any API call or publish (safety rules, verified platform gotchas, skill-improvement loop).
+description: Guide and index for the ezy-* skill set covering EzyPlatform / EzyArticle site management (environment.json + pages/ + page-fragments/), Java theme & plugin development, admin UI customization, and ezyplatform.com marketplace publishing (plugins/themes). Use first for any EzyPlatform task to pick the right ezy-* skill and workflow, when unsure which skill applies, when checking which site and permissions the access token gives, and before any API call or publish (safety rules, verified platform gotchas, skill-improvement loop).
 ---
 
 # ezy-guide
@@ -20,7 +20,7 @@ For **EzyArticle site management** (`ezy-new` through `ezy-verify`):
    ```
 4. Before any API call or publish, load `references/platform-gotchas.md` — verified server behaviour that silently breaks naive scripts.
 
-For **standalone platform & marketplace skills** (`ezy-develop`, `ezy-admin-customize`, `ezy-market-submit`, `ezy-publish-skill`): they do **not** require an EzyArticle `environment.json` folder — they use the local EzyPlatform SDK or EzyLogin CLI login directly. Jump straight to the matching skill.
+For **standalone platform & marketplace skills** (`ezy-develop`, `ezy-admin-customize`, `ezy-market-submit`): they do **not** require an EzyArticle `environment.json` folder — they use the local EzyPlatform SDK or EzyLogin CLI login directly. Jump straight to the matching skill.
 
 ## 2. Which skill
 
@@ -38,7 +38,6 @@ For **standalone platform & marketplace skills** (`ezy-develop`, `ezy-admin-cust
 | Build a Java theme/plugin/module, set up JDK 8 / Maven / SDK, link market plugins, export | `ezy-develop` |
 | Customize or restyle the EzyPlatform admin UI (CSS/JS head & foot via EzySupport, desktop mode) | `ezy-admin-customize` |
 | Submit/upload/release a plugin or theme bundle to the ezyplatform.com marketplace | `ezy-market-submit` |
-| Publish/sell/update an AI skill on the ezyplatform.com skill library | `ezy-publish-skill` |
 
 ## 3. Standard workflow for a site change
 

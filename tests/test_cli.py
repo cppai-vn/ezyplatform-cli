@@ -63,7 +63,7 @@ class CliTest(unittest.TestCase):
 
     def test_subcommand_help_uses_ezy_names(self):
         for cmd in ('sync', 'publish', 'media', 'i18n', 'verify', 'mail', 'new', 'init', 'plugins', 'skills',
-                    'dev', 'admin-customize', 'market', 'publish-skill'):
+                    'dev', 'admin-customize', 'market'):
             code, out = run(cmd, '--help')
             self.assertEqual(code, 0, f'{cmd}: {out}')
             self.assertIn('usage: ezy ', out, f'{cmd}: {out}')
@@ -95,18 +95,11 @@ class CliTest(unittest.TestCase):
     def test_copy_skills(self):
         code, out = run('new', self.dir, '--copy-skills', '--no-example')
         self.assertEqual(code, 0, out)
-        for skill in ('ezy-guide', 'ezy-develop', 'ezy-admin-customize', 'ezy-market-submit', 'ezy-publish-skill'):
+        for skill in ('ezy-guide', 'ezy-develop', 'ezy-admin-customize', 'ezy-market-submit'):
             self.assertTrue(os.path.isfile(os.path.join(self.dir, '.claude/skills', skill, 'SKILL.md')), skill)
         self.assertTrue(os.path.isfile(os.path.join(self.dir, '.claude/skills/ezy-shared/ezy_client.py')))
 
     def test_standalone_commands(self):
-        # publish-skill scan on bundled skill passes cleanly
-        code, skills_root = run('skills-path')
-        self.assertEqual(code, 0)
-        code, out = run('publish-skill', 'scan', os.path.join(skills_root.strip(), 'ezy-publish-skill'))
-        self.assertEqual(code, 0, out)
-        self.assertIn('findings: none', out)
-
         # market create validates locally without touching the network
         bad_json = os.path.join(self.dir, 'project.json')
         with open(bad_json, 'w', encoding='utf-8') as fh:
